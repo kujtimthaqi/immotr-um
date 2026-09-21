@@ -55,14 +55,14 @@ export default function Bewertung() {
         <div className="mt-14 grid grid-cols-1 lg:grid-cols-12 gap-8">
           <motion.div
             initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.7 }}
-            className="lg:col-span-7 glass rounded-2xl p-8 md:p-10"
+            className="lg:col-span-7 glass rounded-2xl p-6 md:p-10"
           >
-            <div className="flex items-center gap-3 mb-8">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-8">
               {STEPS.map((s, i) => (
-                <div key={s} className="flex items-center gap-3">
-                  <div className={`h-8 w-8 rounded-full border flex items-center justify-center text-[11px] transition-colors ${i <= step ? "bg-gold text-navy border-gold" : "border-gold/30 text-white/60"}`}>{i + 1}</div>
-                  <div className={`text-[11px] uppercase tracking-[0.2em] ${i === step ? "text-gold-light" : "text-white/50"}`}>{s}</div>
-                  {i < STEPS.length - 1 && <div className="w-8 h-px bg-gold/25"/>}
+                <div key={s} className="flex items-center gap-2 md:gap-3">
+                  <div className={`h-8 w-8 rounded-full border flex items-center justify-center text-[11px] transition-colors shrink-0 ${i <= step ? "bg-gold text-navy border-gold" : "border-gold/30 text-white/60"}`}>{i + 1}</div>
+                  <div className={`text-[10px] md:text-[11px] uppercase tracking-[0.16em] md:tracking-[0.2em] ${i === step ? "text-gold-light" : "text-white/50"}`}>{s}</div>
+                  {i < STEPS.length - 1 && <div className="hidden md:block w-8 h-px bg-gold/25"/>}
                 </div>
               ))}
             </div>

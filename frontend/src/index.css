@@ -172,19 +172,19 @@ body[data-theme="light"] section[class*="bg-navy-2"] { background-color: #EFEAE0
 body[data-theme="light"] section[class*="bg-\\[\\#060d1c\\]"] { background-color: #ECE6D8; color: #0A1428; }
 
 body[data-theme="light"] .text-white { color: #0A1428 !important; }
-body[data-theme="light"] .text-white\\/80,
-body[data-theme="light"] .text-white\\/75,
-body[data-theme="light"] .text-white\\/70,
-body[data-theme="light"] .text-white\\/65,
-body[data-theme="light"] .text-white\\/60 { color: rgba(10,20,40,0.72) !important; }
-body[data-theme="light"] .text-white\\/50,
-body[data-theme="light"] .text-white\\/40 { color: rgba(10,20,40,0.55) !important; }
+body[data-theme="light"] .text-white\/80,
+body[data-theme="light"] .text-white\/75,
+body[data-theme="light"] .text-white\/70,
+body[data-theme="light"] .text-white\/65,
+body[data-theme="light"] .text-white\/60 { color: rgba(10,20,40,0.72) !important; }
+body[data-theme="light"] .text-white\/50,
+body[data-theme="light"] .text-white\/40 { color: rgba(10,20,40,0.55) !important; }
 body[data-theme="light"] .text-gold-light,
-body[data-theme="light"] .text-gold-light\\/80,
-body[data-theme="light"] .text-gold-light\\/70 { color: #8a6b2e !important; }
+body[data-theme="light"] .text-gold-light\/80,
+body[data-theme="light"] .text-gold-light\/70 { color: #8a6b2e !important; }
 body[data-theme="light"] .text-gold { color: #8a6b2e !important; }
-body[data-theme="light"] .border-gold\\/25,
-body[data-theme="light"] .border-gold\\/30 { border-color: rgba(138,107,46,0.35) !important; }
+body[data-theme="light"] .border-gold\/25,
+body[data-theme="light"] .border-gold\/30 { border-color: rgba(138,107,46,0.35) !important; }
 
 body[data-theme="light"] .btn-ghost { color: #0A1428; border-color: rgba(138,107,46,0.45); background: rgba(10,20,40,0.03); }
 body[data-theme="light"] .btn-ghost:hover { background: rgba(201,169,110,0.15); }
@@ -200,11 +200,11 @@ body[data-theme="light"] footer.bg-navy { background-color: #EFEAE0 !important; 
 /* Keep hero dark for cinematic effect even in light mode; the image is night-time */
 body[data-theme="light"] section#hero { background-color: #0A1428 !important; color: #FFFFFF !important; }
 body[data-theme="light"] section#hero .text-white,
-body[data-theme="light"] section#hero .text-white\\/80,
-body[data-theme="light"] section#hero .text-white\\/75 { color: #FFFFFF !important; }
+body[data-theme="light"] section#hero .text-white\/80,
+body[data-theme="light"] section#hero .text-white\/75 { color: #FFFFFF !important; }
 body[data-theme="light"] section#hero .text-gold-light,
-body[data-theme="light"] section#hero .text-gold-light\\/80,
-body[data-theme="light"] section#hero .text-gold-light\\/70 { color: #E6D3A8 !important; }
+body[data-theme="light"] section#hero .text-gold-light\/80,
+body[data-theme="light"] section#hero .text-gold-light\/70 { color: #E6D3A8 !important; }
 body[data-theme="light"] section#hero .text-gold { color: #C9A96E !important; }
 
 /* Buttons */

@@ -101,3 +101,40 @@ Design: High-End PropTech (Niveau VistaView / cinematic). Navy #0A1428 + Champag
 - P2: Higgsfield API Integration (Backend-Video-Generierung: Job-Queue + Webhooks + `media_jobs` Collection) — Machbarkeitsstudie liegt vor, Implementierung deferred.
 - P2: Real-iOS-Device-Verifikation des `<video>` codec-picks (Playwright-Chromium hat kein H.264).
 - P2: E-Mail-Weiterleitung Anfragen (Resend), OG-Image 1200×630, i18n DE/EN/IT, Admin-Bcrypt + Rate-Limit.
+
+## Update 5 (Feb 2026 — Mobile Real-Device Fixes + Deploy CSS Bug)
+Bugfix nach Real-Device-Screenshot (Android Chrome 412px):
+
+### Frontend
+- **Crest.jsx**: Guard neu via `new Image()` onload + `naturalWidth > 0`, onerror rendert `null`. Kein fetch-HEAD/content-type-Check mehr (CDN-Fehlermeldungen setzten teils fälschlich `image/*` Header → Broken-Image-Icon). Solange `/brand/wappen.png` fehlt, wird kein `<img>` gerendert, kein Alt-Text, kein Platzhalter.
+- **Header.jsx**: Brand `text-[15px]` mobile, `whitespace-nowrap`, `gap-2 md:gap-3`, container `px-4 md:px-10`. Fallback-Haus-SVG kleiner (24px) auf Mobile mit `shrink-0`.
+- **Hero.jsx**:
+  - Eyebrow: Mobile-Variante „Bodensee · Alpen" mit `tracking-[0.18em]`; Desktop-Variante „REAL ESTATE · BODENSEE & ALPEN" ab md+.
+  - Stat-Leiste (SIV/Casafair/Regionen): `hidden md:block` — auf Mobile komplett aus dem DOM, sodass CTAs nicht überdeckt werden.
+  - Vertikale Hairline im HUD-SVG: `hidden md:block`.
+  - `min-h-[560px] md:min-h-[640px]` für kleinere Android-Geräte.
+- **FloatingChat.jsx**:
+  - Chat-Orb erst nach `scrollY > 120` (oder 6 s Idle-Fallback) sichtbar — verdeckt Hero-CTAs nicht mehr.
+  - Grösse `clamp(48px, 13vw, 56px)` — 48 px auf 360-Viewport, 53 px auf 412, 56 px auf ≥ 768.
+- **Footer.jsx**: `pb-24 md:pb-6` auf Copyright-Zeile für Chat-Button-Safe-Area.
+- **Bewertung.jsx** (Wizard): Step-Indicator `flex-wrap gap-x-3 gap-y-2`, Separator-Lines `hidden md:block`, Card-Padding `p-6 md:p-10` — kein interner Overflow mehr auf 360 px.
+- **Objekte.jsx** (ListingCard): Bild-Spalte `w-24 sm:w-32 md:w-40`, Content `flex-wrap` für Netto/NK/Fläche-Zeile + Status-Zeile, `min-w-0` + `break-words`.
+
+### Deploy CSS Bug (kritisch, vom deployer_agent gemeldet)
+- **index.css**: 15 Zeilen mit CSS-Escape `\\/` (doppelter Backslash) → cssnano-Fehler im Prod-Build „Unexpected '/'". Fix: einfacher Backslash `\/` für alle Tailwind-Opacity-Selektoren (`.text-white\/80`, `.text-gold-light\/80`, `.border-gold\/25` etc.). Verifiziert mit `yarn build` → **Compiled successfully**, CSS 13.2 kB.
+
+### Verified (testing_agent iteration_7)
+Real-Playwright-Mobile-Emulation (iPhone/Android UA + isMobile + hasTouch) auf 4 Viewports × 2 Themes = 8 Sessions:
+
+| Viewport | Theme | Sections mit Overlap | Body-Overflow | Broken Images |
+|---|---|---|---|---|
+| 360×640 | dark | none | no | no |
+| 360×640 | light | none | no | no |
+| 375×667 | dark | none | no | no |
+| 375×667 | light | none | no | no |
+| 390×844 | dark | none | no | no |
+| 390×844 | light | none | no | no |
+| 412×915 | dark | none | no | no |
+| 412×915 | light | none | no | no |
+
+12/12 Spec-Kriterien PASS. Alle 6 Original-Bugs behoben.

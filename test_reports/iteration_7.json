@@ -1,0 +1,45 @@
+{
+  "summary": "Real-device mobile emulation testing (iPhone UA, hasTouch, isMobile) across 4 viewports (360x640, 375x667, 390x844, 412x915) × 2 themes (dark, light) = 8 sessions. All 12 spec criteria PASS on the primary Hero/Header/Chat/Crest fixes. Body-level horizontal overflow is clean (scrollWidth === innerWidth on all 4 viewports). One residual issue: internal overflow inside #bewertung wizard progress indicator (contained by parent overflow-hidden, so cosmetic only, but should be fixed).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Bewertung wizard progress bar", "issue": "Internal horizontal overflow on all mobile viewports: a 'flex items-center gap-3' step indicator (with 32px numbered circles and text 'CHF —' etc.) renders at right=506px on a 360-412px viewport. Body does not scroll (parent overflow-hidden clips it), but the rightmost step is visually cut off.", "selector": "#bewertung .flex.items-center.gap-3", "priority": "MEDIUM"},
+      {"component": "Objekte cards", "issue": "On 360-375px viewports, some card inner content (.flex-1.p-5) extends 15-30px past the viewport right edge. Body scrollWidth stays clean but text/badges inside cards may be visually clipped.", "selector": "#objekte .flex-1.p-5", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/test_reports/iteration_7_raw.json"
+  ],
+  "action_items": [
+    "Optional: make #bewertung step indicator responsive on mobile (flex-wrap or scale down step circles) to eliminate internal 506px overflow. Current parent overflow-hidden hides the impact but rightmost step is visually cut."
+  ],
+  "critical_code_review_comments": [
+    "Crest.jsx uses a module-level singleton `crestState` with a pending Promise — correct for avoiding duplicate probes but effectively caches result for the tab lifetime. If wappen.png is later added at runtime it won't be picked up until reload. Acceptable trade-off.",
+    "FloatingChat useEffect adds a scroll listener; the 6s fallback timer resolves visibility even if user never scrolls — matches spec.",
+    "Hero: stat bar correctly `hidden md:block`, vertical SVG hairline correctly `hidden md:block`. Well-scoped."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (frontend only)", "frontend": "12/12 spec criteria pass (100%), 2 minor internal-overflow issues found in non-hero sections"},
+  "seed_data_creation": "None. /app/frontend/public/brand/ deliberately empty (no wappen.png) to test Crest guard.",
+  "test_credentials": "not needed (admin /login overflow check was optional and not required)",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Test used real Playwright mobile emulation (iPhone UA + isMobile + hasTouch). Per-viewport-theme fresh context + page.reload() was necessary because Hero uses lazy useState(() => window.innerWidth < 768) and won't re-init on plain viewport resize. Raw per-section JSON at /app/test_reports/iteration_7_raw.json. Chat orb clamp() values confirmed: 360=48, 375=48.8, 390=50.7, 412=53.5.",
+  "overlap_matrix": {
+    "columns": ["Viewport", "Theme", "Sections with overlap", "Horizontal body overflow?", "Broken imgs?"],
+    "rows": [
+      ["360x640", "dark",  "none",  "no",  "no"],
+      ["360x640", "light", "none",  "no",  "no"],
+      ["375x667", "dark",  "none",  "no",  "no"],
+      ["375x667", "light", "none",  "no",  "no"],
+      ["390x844", "dark",  "none",  "no",  "no"],
+      ["390x844", "light", "none",  "no",  "no"],
+      ["412x915", "dark",  "none",  "no",  "no"],
+      ["412x915", "light", "none",  "no",  "no"]
+    ],
+    "note": "Interactive/text overlap check (rect intersection > 100px^2, non-descendant): ZERO overlaps in any section on any viewport/theme combo. All 6 original mobile bugs from customer screenshot are fixed."
+  },
+  "rca of the issue": "Original bugs from customer screenshot were fixed as follows: (1) Broken wappen — Crest.jsx now uses real Image().onload + naturalWidth>0 verification, returns null on failure; Header renders inline fallback SVG when crest missing. (2) Two-line brand — added whitespace-nowrap + smaller text-[15px] on mobile. (3) Eyebrow overflow — swapped in shorter 'Bodensee · Alpen' text via md:hidden/md:inline pair. (4)+(5) Stat-bar & chat-orb overlapping CTAs — stat bar now hidden md:block (removed from mobile); chat orb starts invisible (scale:0, opacity:0, pointer-events:none) and only reveals after scrollY>120 or 6s idle. (6) Vertical hairline — SVG now hidden md:block. All verified via JS getBoundingClientRect() + getComputedStyle across 8 device combinations."
+}

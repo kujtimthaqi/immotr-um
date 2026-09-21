@@ -1,0 +1,1502 @@
+[
+  {
+    "viewport": "360x640",
+    "theme": "dark",
+    "checks": {
+      "crest_img_count": 0,
+      "crest_broken_alt": 0,
+      "fallback_svg_present": true,
+      "brand": {
+        "brandHeight": 18.75,
+        "brandRight": 166.75,
+        "innerW": 360,
+        "headerMaxRight": 360,
+        "themeBtn": true
+      },
+      "eyebrow": {
+        "mobile": {
+          "display": "inline",
+          "right": 187.8125,
+          "width": 127.8125
+        },
+        "desktop": {
+          "display": "none",
+          "right": 0,
+          "width": 0
+        },
+        "innerW": 360
+      },
+      "ctas": {
+        "bewertung": {
+          "found": true,
+          "top": 420.234375,
+          "bottom": 468.234375,
+          "right": 288.28125,
+          "opacity": "1",
+          "display": "flex",
+          "innerH": 640,
+          "innerW": 360
+        },
+        "objekte": {
+          "found": true,
+          "top": 484.234375,
+          "bottom": 532.234375,
+          "right": 268.28125,
+          "opacity": "1",
+          "display": "flex",
+          "innerH": 640,
+          "innerW": 360
+        }
+      },
+      "stat_hiddens": [
+        {
+          "tag": "svg",
+          "display": "none",
+          "height": 0,
+          "width": 0
+        },
+        {
+          "tag": "DIV",
+          "display": "none",
+          "height": 0,
+          "width": 0
+        }
+      ],
+      "chat_initial": {
+        "found": true,
+        "opacity": "0",
+        "pointerEvents": "none",
+        "transform": "matrix(0, 0, 0, 0, 0, 0)",
+        "width": 0,
+        "height": 0
+      },
+      "chat_after_scroll": {
+        "found": true,
+        "opacity": "1",
+        "pointerEvents": "auto",
+        "width": 48,
+        "height": 48
+      },
+      "hairline_svg": {
+        "found": true,
+        "display": "none"
+      },
+      "body_overflow_ok": true,
+      "body_overflow_data": {
+        "docScrollW": 360,
+        "innerW": 360
+      }
+    },
+    "sections": {
+      "hero": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 360,
+        "innerW": 360
+      },
+      "leistungen": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 360,
+        "innerW": 360
+      },
+      "objekte": {
+        "overflowRight": [
+          {
+            "tag": "DIV",
+            "cls": "flex-1 p-5",
+            "right": 388
+          },
+          {
+            "tag": "DIV",
+            "cls": "flex items-center gap-2 text-[10px] uppercase tracking-[0.28",
+            "right": 368
+          },
+          {
+            "tag": "SPAN",
+            "cls": "text-white/50",
+            "right": 368
+          },
+          {
+            "tag": "H4",
+            "cls": "mt-2 font-serif text-lg md:text-xl font-light tracking-tight",
+            "right": 368
+          },
+          {
+            "tag": "DIV",
+            "cls": "mt-1 text-xs text-white/60",
+            "right": 368
+          },
+          {
+            "tag": "DIV",
+            "cls": "mt-3 flex items-center gap-4 text-sm",
+            "right": 368
+          }
+        ],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 360,
+        "innerW": 360
+      },
+      "bewertung": {
+        "overflowRight": [
+          {
+            "tag": "DIV",
+            "cls": "flex items-center gap-3",
+            "right": 392
+          },
+          {
+            "tag": "DIV",
+            "cls": "w-8 h-px bg-gold/25",
+            "right": 392
+          },
+          {
+            "tag": "DIV",
+            "cls": "flex items-center gap-3",
+            "right": 506
+          },
+          {
+            "tag": "DIV",
+            "cls": "h-8 w-8 rounded-full border flex items-center justify-center",
+            "right": 436
+          },
+          {
+            "tag": "DIV",
+            "cls": "text-[11px] uppercase tracking-[0.2em] text-white/50",
+            "right": 506
+          }
+        ],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 360,
+        "innerW": 360
+      },
+      "relocation": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 360,
+        "innerW": 360
+      },
+      "beteiligungen": {
+        "overflowRight": [
+          {
+            "tag": "DIV",
+            "cls": "absolute -top-40 -left-32 w-[500px] h-[500px] rounded-full",
+            "right": 372
+          }
+        ],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 360,
+        "innerW": 360
+      },
+      "trust": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 360,
+        "innerW": 360
+      },
+      "kontakt": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 360,
+        "innerW": 360
+      }
+    }
+  },
+  {
+    "viewport": "360x640",
+    "theme": "dark",
+    "error": "Page.screenshot: options.quality is unsupported for the png screenshots"
+  },
+  {
+    "viewport": "360x640",
+    "theme": "light",
+    "checks": {
+      "crest_img_count": 0,
+      "crest_broken_alt": 0,
+      "fallback_svg_present": true,
+      "brand": {
+        "brandHeight": 18.75,
+        "brandRight": 166.75,
+        "innerW": 360,
+        "headerMaxRight": 360,
+        "themeBtn": true
+      },
+      "eyebrow": {
+        "mobile": {
+          "display": "inline",
+          "right": 187.8125,
+          "width": 127.8125
+        },
+        "desktop": {
+          "display": "none",
+          "right": 0,
+          "width": 0
+        },
+        "innerW": 360
+      },
+      "ctas": {
+        "bewertung": {
+          "found": true,
+          "top": 420.234375,
+          "bottom": 468.234375,
+          "right": 288.28125,
+          "opacity": "1",
+          "display": "flex",
+          "innerH": 640,
+          "innerW": 360
+        },
+        "objekte": {
+          "found": true,
+          "top": 484.234375,
+          "bottom": 532.234375,
+          "right": 268.28125,
+          "opacity": "1",
+          "display": "flex",
+          "innerH": 640,
+          "innerW": 360
+        }
+      },
+      "stat_hiddens": [
+        {
+          "tag": "svg",
+          "display": "none",
+          "height": 0,
+          "width": 0
+        },
+        {
+          "tag": "DIV",
+          "display": "none",
+          "height": 0,
+          "width": 0
+        }
+      ],
+      "chat_initial": {
+        "found": true,
+        "opacity": "0",
+        "pointerEvents": "none",
+        "transform": "matrix(0, 0, 0, 0, 0, 0)",
+        "width": 0,
+        "height": 0
+      },
+      "chat_after_scroll": {
+        "found": true,
+        "opacity": "1",
+        "pointerEvents": "auto",
+        "width": 48,
+        "height": 48
+      },
+      "hairline_svg": {
+        "found": true,
+        "display": "none"
+      },
+      "body_overflow_ok": true,
+      "body_overflow_data": {
+        "docScrollW": 360,
+        "innerW": 360
+      }
+    },
+    "sections": {
+      "hero": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 360,
+        "innerW": 360
+      },
+      "leistungen": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 360,
+        "innerW": 360
+      },
+      "objekte": {
+        "overflowRight": [
+          {
+            "tag": "DIV",
+            "cls": "flex-1 p-5",
+            "right": 388
+          },
+          {
+            "tag": "DIV",
+            "cls": "flex items-center gap-2 text-[10px] uppercase tracking-[0.28",
+            "right": 368
+          },
+          {
+            "tag": "SPAN",
+            "cls": "text-white/50",
+            "right": 368
+          },
+          {
+            "tag": "H4",
+            "cls": "mt-2 font-serif text-lg md:text-xl font-light tracking-tight",
+            "right": 368
+          },
+          {
+            "tag": "DIV",
+            "cls": "mt-1 text-xs text-white/60",
+            "right": 368
+          },
+          {
+            "tag": "DIV",
+            "cls": "mt-3 flex items-center gap-4 text-sm",
+            "right": 368
+          }
+        ],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 360,
+        "innerW": 360
+      },
+      "bewertung": {
+        "overflowRight": [
+          {
+            "tag": "DIV",
+            "cls": "flex items-center gap-3",
+            "right": 392
+          },
+          {
+            "tag": "DIV",
+            "cls": "w-8 h-px bg-gold/25",
+            "right": 392
+          },
+          {
+            "tag": "DIV",
+            "cls": "flex items-center gap-3",
+            "right": 506
+          },
+          {
+            "tag": "DIV",
+            "cls": "h-8 w-8 rounded-full border flex items-center justify-center",
+            "right": 436
+          },
+          {
+            "tag": "DIV",
+            "cls": "text-[11px] uppercase tracking-[0.2em] text-white/50",
+            "right": 506
+          }
+        ],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 360,
+        "innerW": 360
+      },
+      "relocation": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 360,
+        "innerW": 360
+      },
+      "beteiligungen": {
+        "overflowRight": [
+          {
+            "tag": "DIV",
+            "cls": "absolute -top-40 -left-32 w-[500px] h-[500px] rounded-full",
+            "right": 372
+          }
+        ],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 360,
+        "innerW": 360
+      },
+      "trust": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 360,
+        "innerW": 360
+      },
+      "kontakt": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 360,
+        "innerW": 360
+      }
+    }
+  },
+  {
+    "viewport": "360x640",
+    "theme": "light",
+    "error": "Page.screenshot: options.quality is unsupported for the png screenshots"
+  },
+  {
+    "viewport": "375x667",
+    "theme": "dark",
+    "checks": {
+      "crest_img_count": 0,
+      "crest_broken_alt": 0,
+      "fallback_svg_present": true,
+      "brand": {
+        "brandHeight": 18.75,
+        "brandRight": 166.75,
+        "innerW": 375,
+        "headerMaxRight": 375,
+        "themeBtn": true
+      },
+      "eyebrow": {
+        "mobile": {
+          "display": "inline",
+          "right": 187.8125,
+          "width": 127.8125
+        },
+        "desktop": {
+          "display": "none",
+          "right": 0,
+          "width": 0
+        },
+        "innerW": 375
+      },
+      "ctas": {
+        "bewertung": {
+          "found": true,
+          "top": 433.734375,
+          "bottom": 481.734375,
+          "right": 288.28125,
+          "opacity": "1",
+          "display": "flex",
+          "innerH": 667,
+          "innerW": 375
+        },
+        "objekte": {
+          "found": true,
+          "top": 497.734375,
+          "bottom": 545.734375,
+          "right": 268.28125,
+          "opacity": "1",
+          "display": "flex",
+          "innerH": 667,
+          "innerW": 375
+        }
+      },
+      "stat_hiddens": [
+        {
+          "tag": "svg",
+          "display": "none",
+          "height": 0,
+          "width": 0
+        },
+        {
+          "tag": "DIV",
+          "display": "none",
+          "height": 0,
+          "width": 0
+        }
+      ],
+      "chat_initial": {
+        "found": true,
+        "opacity": "0",
+        "pointerEvents": "none",
+        "transform": "matrix(0, 0, 0, 0, 0, 0)",
+        "width": 0,
+        "height": 0
+      },
+      "chat_after_scroll": {
+        "found": true,
+        "opacity": "1",
+        "pointerEvents": "auto",
+        "width": 48.75,
+        "height": 48.75
+      },
+      "hairline_svg": {
+        "found": true,
+        "display": "none"
+      },
+      "body_overflow_ok": true,
+      "body_overflow_data": {
+        "docScrollW": 375,
+        "innerW": 375
+      }
+    },
+    "sections": {
+      "hero": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 375,
+        "innerW": 375
+      },
+      "leistungen": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 375,
+        "innerW": 375
+      },
+      "objekte": {
+        "overflowRight": [
+          {
+            "tag": "DIV",
+            "cls": "flex-1 p-5",
+            "right": 388
+          },
+          {
+            "tag": "DIV",
+            "cls": "flex-1 p-5",
+            "right": 390
+          }
+        ],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 375,
+        "innerW": 375
+      },
+      "bewertung": {
+        "overflowRight": [
+          {
+            "tag": "DIV",
+            "cls": "flex items-center gap-3",
+            "right": 392
+          },
+          {
+            "tag": "DIV",
+            "cls": "w-8 h-px bg-gold/25",
+            "right": 392
+          },
+          {
+            "tag": "DIV",
+            "cls": "flex items-center gap-3",
+            "right": 506
+          },
+          {
+            "tag": "DIV",
+            "cls": "h-8 w-8 rounded-full border flex items-center justify-center",
+            "right": 436
+          },
+          {
+            "tag": "DIV",
+            "cls": "text-[11px] uppercase tracking-[0.2em] text-white/50",
+            "right": 506
+          }
+        ],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 375,
+        "innerW": 375
+      },
+      "relocation": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 375,
+        "innerW": 375
+      },
+      "beteiligungen": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 375,
+        "innerW": 375
+      },
+      "trust": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 375,
+        "innerW": 375
+      },
+      "kontakt": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 375,
+        "innerW": 375
+      }
+    }
+  },
+  {
+    "viewport": "375x667",
+    "theme": "dark",
+    "error": "Page.screenshot: options.quality is unsupported for the png screenshots"
+  },
+  {
+    "viewport": "375x667",
+    "theme": "light",
+    "checks": {
+      "crest_img_count": 0,
+      "crest_broken_alt": 0,
+      "fallback_svg_present": true,
+      "brand": {
+        "brandHeight": 18.75,
+        "brandRight": 166.75,
+        "innerW": 375,
+        "headerMaxRight": 375,
+        "themeBtn": true
+      },
+      "eyebrow": {
+        "mobile": {
+          "display": "inline",
+          "right": 187.8125,
+          "width": 127.8125
+        },
+        "desktop": {
+          "display": "none",
+          "right": 0,
+          "width": 0
+        },
+        "innerW": 375
+      },
+      "ctas": {
+        "bewertung": {
+          "found": true,
+          "top": 433.734375,
+          "bottom": 481.734375,
+          "right": 288.28125,
+          "opacity": "1",
+          "display": "flex",
+          "innerH": 667,
+          "innerW": 375
+        },
+        "objekte": {
+          "found": true,
+          "top": 497.734375,
+          "bottom": 545.734375,
+          "right": 268.28125,
+          "opacity": "1",
+          "display": "flex",
+          "innerH": 667,
+          "innerW": 375
+        }
+      },
+      "stat_hiddens": [
+        {
+          "tag": "svg",
+          "display": "none",
+          "height": 0,
+          "width": 0
+        },
+        {
+          "tag": "DIV",
+          "display": "none",
+          "height": 0,
+          "width": 0
+        }
+      ],
+      "chat_initial": {
+        "found": true,
+        "opacity": "0",
+        "pointerEvents": "none",
+        "transform": "matrix(0, 0, 0, 0, 0, 0)",
+        "width": 0,
+        "height": 0
+      },
+      "chat_after_scroll": {
+        "found": true,
+        "opacity": "1",
+        "pointerEvents": "auto",
+        "width": 48.75,
+        "height": 48.75
+      },
+      "hairline_svg": {
+        "found": true,
+        "display": "none"
+      },
+      "body_overflow_ok": true,
+      "body_overflow_data": {
+        "docScrollW": 375,
+        "innerW": 375
+      }
+    },
+    "sections": {
+      "hero": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 375,
+        "innerW": 375
+      },
+      "leistungen": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 375,
+        "innerW": 375
+      },
+      "objekte": {
+        "overflowRight": [
+          {
+            "tag": "DIV",
+            "cls": "flex-1 p-5",
+            "right": 388
+          },
+          {
+            "tag": "DIV",
+            "cls": "flex-1 p-5",
+            "right": 390
+          }
+        ],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 375,
+        "innerW": 375
+      },
+      "bewertung": {
+        "overflowRight": [
+          {
+            "tag": "DIV",
+            "cls": "flex items-center gap-3",
+            "right": 392
+          },
+          {
+            "tag": "DIV",
+            "cls": "w-8 h-px bg-gold/25",
+            "right": 392
+          },
+          {
+            "tag": "DIV",
+            "cls": "flex items-center gap-3",
+            "right": 506
+          },
+          {
+            "tag": "DIV",
+            "cls": "h-8 w-8 rounded-full border flex items-center justify-center",
+            "right": 436
+          },
+          {
+            "tag": "DIV",
+            "cls": "text-[11px] uppercase tracking-[0.2em] text-white/50",
+            "right": 506
+          }
+        ],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 375,
+        "innerW": 375
+      },
+      "relocation": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 375,
+        "innerW": 375
+      },
+      "beteiligungen": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 375,
+        "innerW": 375
+      },
+      "trust": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 375,
+        "innerW": 375
+      },
+      "kontakt": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 375,
+        "innerW": 375
+      }
+    }
+  },
+  {
+    "viewport": "375x667",
+    "theme": "light",
+    "error": "Page.screenshot: options.quality is unsupported for the png screenshots"
+  },
+  {
+    "viewport": "390x844",
+    "theme": "dark",
+    "checks": {
+      "crest_img_count": 0,
+      "crest_broken_alt": 0,
+      "fallback_svg_present": true,
+      "brand": {
+        "brandHeight": 18.75,
+        "brandRight": 166.75,
+        "innerW": 390,
+        "headerMaxRight": 390,
+        "themeBtn": true
+      },
+      "eyebrow": {
+        "mobile": {
+          "display": "inline",
+          "right": 187.8125,
+          "width": 127.8125
+        },
+        "desktop": {
+          "display": "none",
+          "right": 0,
+          "width": 0
+        },
+        "innerW": 390
+      },
+      "ctas": {
+        "bewertung": {
+          "found": true,
+          "top": 522.234375,
+          "bottom": 570.234375,
+          "right": 288.28125,
+          "opacity": "1",
+          "display": "flex",
+          "innerH": 844,
+          "innerW": 390
+        },
+        "objekte": {
+          "found": true,
+          "top": 586.234375,
+          "bottom": 634.234375,
+          "right": 268.28125,
+          "opacity": "1",
+          "display": "flex",
+          "innerH": 844,
+          "innerW": 390
+        }
+      },
+      "stat_hiddens": [
+        {
+          "tag": "svg",
+          "display": "none",
+          "height": 0,
+          "width": 0
+        },
+        {
+          "tag": "DIV",
+          "display": "none",
+          "height": 0,
+          "width": 0
+        }
+      ],
+      "chat_initial": {
+        "found": true,
+        "opacity": "0",
+        "pointerEvents": "none",
+        "transform": "matrix(0, 0, 0, 0, 0, 0)",
+        "width": 0,
+        "height": 0
+      },
+      "chat_after_scroll": {
+        "found": true,
+        "opacity": "1",
+        "pointerEvents": "auto",
+        "width": 50.6875,
+        "height": 50.6875
+      },
+      "hairline_svg": {
+        "found": true,
+        "display": "none"
+      },
+      "body_overflow_ok": true,
+      "body_overflow_data": {
+        "docScrollW": 390,
+        "innerW": 390
+      }
+    },
+    "sections": {
+      "hero": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 390,
+        "innerW": 390
+      },
+      "leistungen": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 390,
+        "innerW": 390
+      },
+      "objekte": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 390,
+        "innerW": 390
+      },
+      "bewertung": {
+        "overflowRight": [
+          {
+            "tag": "DIV",
+            "cls": "flex items-center gap-3",
+            "right": 392
+          },
+          {
+            "tag": "DIV",
+            "cls": "w-8 h-px bg-gold/25",
+            "right": 392
+          },
+          {
+            "tag": "DIV",
+            "cls": "flex items-center gap-3",
+            "right": 506
+          },
+          {
+            "tag": "DIV",
+            "cls": "h-8 w-8 rounded-full border flex items-center justify-center",
+            "right": 436
+          },
+          {
+            "tag": "DIV",
+            "cls": "text-[11px] uppercase tracking-[0.2em] text-white/50",
+            "right": 506
+          }
+        ],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 390,
+        "innerW": 390
+      },
+      "relocation": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 390,
+        "innerW": 390
+      },
+      "beteiligungen": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 390,
+        "innerW": 390
+      },
+      "trust": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 390,
+        "innerW": 390
+      },
+      "kontakt": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 390,
+        "innerW": 390
+      }
+    }
+  },
+  {
+    "viewport": "390x844",
+    "theme": "dark",
+    "error": "Page.screenshot: options.quality is unsupported for the png screenshots"
+  },
+  {
+    "viewport": "390x844",
+    "theme": "light",
+    "checks": {
+      "crest_img_count": 0,
+      "crest_broken_alt": 0,
+      "fallback_svg_present": true,
+      "brand": {
+        "brandHeight": 18.75,
+        "brandRight": 166.75,
+        "innerW": 390,
+        "headerMaxRight": 390,
+        "themeBtn": true
+      },
+      "eyebrow": {
+        "mobile": {
+          "display": "inline",
+          "right": 187.8125,
+          "width": 127.8125
+        },
+        "desktop": {
+          "display": "none",
+          "right": 0,
+          "width": 0
+        },
+        "innerW": 390
+      },
+      "ctas": {
+        "bewertung": {
+          "found": true,
+          "top": 522.234375,
+          "bottom": 570.234375,
+          "right": 288.28125,
+          "opacity": "1",
+          "display": "flex",
+          "innerH": 844,
+          "innerW": 390
+        },
+        "objekte": {
+          "found": true,
+          "top": 586.234375,
+          "bottom": 634.234375,
+          "right": 268.28125,
+          "opacity": "1",
+          "display": "flex",
+          "innerH": 844,
+          "innerW": 390
+        }
+      },
+      "stat_hiddens": [
+        {
+          "tag": "svg",
+          "display": "none",
+          "height": 0,
+          "width": 0
+        },
+        {
+          "tag": "DIV",
+          "display": "none",
+          "height": 0,
+          "width": 0
+        }
+      ],
+      "chat_initial": {
+        "found": true,
+        "opacity": "0",
+        "pointerEvents": "none",
+        "transform": "matrix(0, 0, 0, 0, 0, 0)",
+        "width": 0,
+        "height": 0
+      },
+      "chat_after_scroll": {
+        "found": true,
+        "opacity": "1",
+        "pointerEvents": "auto",
+        "width": 50.6875,
+        "height": 50.6875
+      },
+      "hairline_svg": {
+        "found": true,
+        "display": "none"
+      },
+      "body_overflow_ok": true,
+      "body_overflow_data": {
+        "docScrollW": 390,
+        "innerW": 390
+      }
+    },
+    "sections": {
+      "hero": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 390,
+        "innerW": 390
+      },
+      "leistungen": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 390,
+        "innerW": 390
+      },
+      "objekte": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 390,
+        "innerW": 390
+      },
+      "bewertung": {
+        "overflowRight": [
+          {
+            "tag": "DIV",
+            "cls": "flex items-center gap-3",
+            "right": 392
+          },
+          {
+            "tag": "DIV",
+            "cls": "w-8 h-px bg-gold/25",
+            "right": 392
+          },
+          {
+            "tag": "DIV",
+            "cls": "flex items-center gap-3",
+            "right": 506
+          },
+          {
+            "tag": "DIV",
+            "cls": "h-8 w-8 rounded-full border flex items-center justify-center",
+            "right": 436
+          },
+          {
+            "tag": "DIV",
+            "cls": "text-[11px] uppercase tracking-[0.2em] text-white/50",
+            "right": 506
+          }
+        ],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 390,
+        "innerW": 390
+      },
+      "relocation": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 390,
+        "innerW": 390
+      },
+      "beteiligungen": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 390,
+        "innerW": 390
+      },
+      "trust": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 390,
+        "innerW": 390
+      },
+      "kontakt": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 390,
+        "innerW": 390
+      }
+    }
+  },
+  {
+    "viewport": "390x844",
+    "theme": "light",
+    "error": "Page.screenshot: options.quality is unsupported for the png screenshots"
+  },
+  {
+    "viewport": "412x915",
+    "theme": "dark",
+    "checks": {
+      "crest_img_count": 0,
+      "crest_broken_alt": 0,
+      "fallback_svg_present": true,
+      "brand": {
+        "brandHeight": 18.75,
+        "brandRight": 166.75,
+        "innerW": 412,
+        "headerMaxRight": 412,
+        "themeBtn": true
+      },
+      "eyebrow": {
+        "mobile": {
+          "display": "inline",
+          "right": 187.8125,
+          "width": 127.8125
+        },
+        "desktop": {
+          "display": "none",
+          "right": 0,
+          "width": 0
+        },
+        "innerW": 412
+      },
+      "ctas": {
+        "bewertung": {
+          "found": true,
+          "top": 557.734375,
+          "bottom": 605.734375,
+          "right": 288.28125,
+          "opacity": "1",
+          "display": "flex",
+          "innerH": 915,
+          "innerW": 412
+        },
+        "objekte": {
+          "found": true,
+          "top": 621.734375,
+          "bottom": 669.734375,
+          "right": 268.28125,
+          "opacity": "1",
+          "display": "flex",
+          "innerH": 915,
+          "innerW": 412
+        }
+      },
+      "stat_hiddens": [
+        {
+          "tag": "svg",
+          "display": "none",
+          "height": 0,
+          "width": 0
+        },
+        {
+          "tag": "DIV",
+          "display": "none",
+          "height": 0,
+          "width": 0
+        }
+      ],
+      "chat_initial": {
+        "found": true,
+        "opacity": "0",
+        "pointerEvents": "none",
+        "transform": "matrix(0, 0, 0, 0, 0, 0)",
+        "width": 0,
+        "height": 0
+      },
+      "chat_after_scroll": {
+        "found": true,
+        "opacity": "1",
+        "pointerEvents": "auto",
+        "width": 53.546875,
+        "height": 53.546875
+      },
+      "hairline_svg": {
+        "found": true,
+        "display": "none"
+      },
+      "body_overflow_ok": true,
+      "body_overflow_data": {
+        "docScrollW": 412,
+        "innerW": 412
+      }
+    },
+    "sections": {
+      "hero": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 412,
+        "innerW": 412
+      },
+      "leistungen": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 412,
+        "innerW": 412
+      },
+      "objekte": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 412,
+        "innerW": 412
+      },
+      "bewertung": {
+        "overflowRight": [
+          {
+            "tag": "DIV",
+            "cls": "flex items-center gap-3",
+            "right": 506
+          },
+          {
+            "tag": "DIV",
+            "cls": "h-8 w-8 rounded-full border flex items-center justify-center",
+            "right": 436
+          },
+          {
+            "tag": "DIV",
+            "cls": "text-[11px] uppercase tracking-[0.2em] text-white/50",
+            "right": 506
+          }
+        ],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 412,
+        "innerW": 412
+      },
+      "relocation": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 412,
+        "innerW": 412
+      },
+      "beteiligungen": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 412,
+        "innerW": 412
+      },
+      "trust": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 412,
+        "innerW": 412
+      },
+      "kontakt": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 412,
+        "innerW": 412
+      }
+    }
+  },
+  {
+    "viewport": "412x915",
+    "theme": "dark",
+    "error": "Page.screenshot: options.quality is unsupported for the png screenshots"
+  },
+  {
+    "viewport": "412x915",
+    "theme": "light",
+    "checks": {
+      "crest_img_count": 0,
+      "crest_broken_alt": 0,
+      "fallback_svg_present": true,
+      "brand": {
+        "brandHeight": 18.75,
+        "brandRight": 166.75,
+        "innerW": 412,
+        "headerMaxRight": 412,
+        "themeBtn": true
+      },
+      "eyebrow": {
+        "mobile": {
+          "display": "inline",
+          "right": 187.8125,
+          "width": 127.8125
+        },
+        "desktop": {
+          "display": "none",
+          "right": 0,
+          "width": 0
+        },
+        "innerW": 412
+      },
+      "ctas": {
+        "bewertung": {
+          "found": true,
+          "top": 557.734375,
+          "bottom": 605.734375,
+          "right": 288.28125,
+          "opacity": "1",
+          "display": "flex",
+          "innerH": 915,
+          "innerW": 412
+        },
+        "objekte": {
+          "found": true,
+          "top": 621.734375,
+          "bottom": 669.734375,
+          "right": 268.28125,
+          "opacity": "1",
+          "display": "flex",
+          "innerH": 915,
+          "innerW": 412
+        }
+      },
+      "stat_hiddens": [
+        {
+          "tag": "svg",
+          "display": "none",
+          "height": 0,
+          "width": 0
+        },
+        {
+          "tag": "DIV",
+          "display": "none",
+          "height": 0,
+          "width": 0
+        }
+      ],
+      "chat_initial": {
+        "found": true,
+        "opacity": "0",
+        "pointerEvents": "none",
+        "transform": "matrix(0, 0, 0, 0, 0, 0)",
+        "width": 0,
+        "height": 0
+      },
+      "chat_after_scroll": {
+        "found": true,
+        "opacity": "0",
+        "pointerEvents": "auto",
+        "width": 0,
+        "height": 0
+      },
+      "hairline_svg": {
+        "found": true,
+        "display": "none"
+      },
+      "body_overflow_ok": true,
+      "body_overflow_data": {
+        "docScrollW": 412,
+        "innerW": 412
+      }
+    },
+    "sections": {
+      "hero": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 412,
+        "innerW": 412
+      },
+      "leistungen": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 412,
+        "innerW": 412
+      },
+      "objekte": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 412,
+        "innerW": 412
+      },
+      "bewertung": {
+        "overflowRight": [
+          {
+            "tag": "DIV",
+            "cls": "flex items-center gap-3",
+            "right": 506
+          },
+          {
+            "tag": "DIV",
+            "cls": "h-8 w-8 rounded-full border flex items-center justify-center",
+            "right": 436
+          },
+          {
+            "tag": "DIV",
+            "cls": "text-[11px] uppercase tracking-[0.2em] text-white/50",
+            "right": 506
+          }
+        ],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 412,
+        "innerW": 412
+      },
+      "relocation": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 412,
+        "innerW": 412
+      },
+      "beteiligungen": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 412,
+        "innerW": 412
+      },
+      "trust": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 412,
+        "innerW": 412
+      },
+      "kontakt": {
+        "overflowRight": [],
+        "broken": [],
+        "overlaps": [],
+        "docScrollW": 412,
+        "innerW": 412
+      }
+    }
+  },
+  {
+    "viewport": "412x915",
+    "theme": "light",
+    "error": "Page.screenshot: options.quality is unsupported for the png screenshots"
+  }
+]

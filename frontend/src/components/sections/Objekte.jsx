@@ -319,7 +319,7 @@ function ListingCard({ listing, idx, active, onEnter, onLeave, onInquire }) {
     >
       <div className="flex gap-0">
         {listing.image_url ? (
-          <div className="w-32 md:w-40 shrink-0 relative">
+          <div className="w-24 sm:w-32 md:w-40 shrink-0 relative">
             <ListingPicture
               src={listing.image_url}
               alt={listing.title}
@@ -329,7 +329,7 @@ function ListingCard({ listing, idx, active, onEnter, onLeave, onInquire }) {
             />
           </div>
         ) : (
-          <div className="w-32 md:w-40 shrink-0 bg-gradient-to-br from-[#13233F] to-[#0A1428] relative">
+          <div className="w-24 sm:w-32 md:w-40 shrink-0 bg-gradient-to-br from-[#13233F] to-[#0A1428] relative">
             <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full opacity-40">
               <line x1="0" y1="80" x2="100" y2="10" stroke="#C9A96E" strokeWidth="0.5"/>
               <line x1="20" y1="100" x2="100" y2="40" stroke="#C9A96E" strokeWidth="0.5"/>
@@ -337,8 +337,8 @@ function ListingCard({ listing, idx, active, onEnter, onLeave, onInquire }) {
             </svg>
           </div>
         )}
-        <div className="flex-1 p-5">
-          <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.28em] text-gold-light/80">
+        <div className="flex-1 p-4 md:p-5 min-w-0">
+          <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.28em] text-gold-light/80 flex-wrap">
             <span className={`pulse-dot ${st.cls}`}/> <span>{st.label}</span>
             {listing.available_from && listing.status === "available" && (
               <span className="text-white/50">· ab {dateSwiss(listing.available_from)}</span>
@@ -347,10 +347,10 @@ function ListingCard({ listing, idx, active, onEnter, onLeave, onInquire }) {
               <span className="text-white/50">· {listing.year}</span>
             )}
           </div>
-          <h4 className="mt-2 font-serif text-lg md:text-xl font-light tracking-tight text-white leading-tight">{listing.title}</h4>
-          <div className="mt-1 text-xs text-white/60">{listing.address}{listing.zip ? `, ${listing.zip} ${listing.city || ""}` : ""}</div>
+          <h4 className="mt-2 font-serif text-base md:text-xl font-light tracking-tight text-white leading-tight break-words">{listing.title}</h4>
+          <div className="mt-1 text-xs text-white/60 break-words">{listing.address}{listing.zip ? `, ${listing.zip} ${listing.city || ""}` : ""}</div>
           {listing.kind === "rental" && (
-            <div className="mt-3 flex items-center gap-4 text-sm">
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
               <div>
                 <div className="text-[10px] uppercase tracking-[0.2em] text-gold">Netto</div>
                 <div className="text-white">{money(listing.net_rent)}</div>
