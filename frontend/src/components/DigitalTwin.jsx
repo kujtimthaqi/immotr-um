@@ -189,6 +189,7 @@ export default function DigitalTwin({ highlightIndex, listings = [], mobile = fa
       gl={{ antialias: !mobile, powerPreference: mobile ? "low-power" : "high-performance", toneMapping: THREE.ACESFilmicToneMapping, outputColorSpace: THREE.SRGBColorSpace }}
       onCreated={({ gl }) => {
         gl.setClearColor("#0A1428", 1);
+        gl.domElement.style.touchAction = mobile ? "pan-y" : "none";
         gl.domElement.addEventListener("webglcontextlost", (e) => { e.preventDefault(); setWebglLost(true); });
       }}
       style={{ touchAction: mobile ? "pan-y" : "none" }}

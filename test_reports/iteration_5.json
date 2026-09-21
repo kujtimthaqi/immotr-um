@@ -1,0 +1,40 @@
+{
+  "summary": "Iteration_5 (frontend-only) — validated mobile video autoplay after 3 spec changes (MP4 vor WebM, IntersectionObserver auf parent, craco MIME-fix am Ende). All 9 requested checks pass on both iPhone (390x844) and Android (412x915) viewports. MIME headers verified via curl: /media/hero-poster-1600.avif → image/avif; /media/dachwohnung-mobile.mp4 → video/mp4; /media/hero-mobile.mp4 → video/mp4 (Cache-Control 'no-store' from preview proxy, expected per spec). Hero video: autoplays (paused=false, currentTime≈3.7s), mobile URL, no play-button overlay. Referenzen tab → reference-video autoplays (currentTime≈2.2s, mobile URL). Mietobjekte tab → Dachwohnung listing-card video autoplays via IntersectionObserver (currentTime≈2.9s, mobile URL). Canvas inside #objekte rendered (340x378), does NOT block vertical scroll (500px scrollBy succeeded before AND after canvas visible). No horizontal overflow at either viewport (scrollWidth===innerWidth exactly). FloatingChat opens via [data-testid=chat-toggle], panel stays inside viewport, no overflow after opening. Zero console errors during full page scroll (3rd-party filters not needed — none were fired). Android emulation shows identical behaviour.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Mobile video codec selection (Chromium)",
+        "issue": "Although MP4 is listed FIRST in <source> order and canPlayType returns 'maybe' for both mp4 and webm, the resolved currentSrc is *-mobile.webm on all three mobile videos (hero, landhaus reference, dachwohnung listing) in Playwright headless Chromium. Root cause: isMobile is initialised as useState(false) and flipped post-mount; when the flip changes the <source> src attributes, the HTMLMediaElement re-runs the resource-selection algorithm but picks WebM (likely Chromium heuristic preferring the last-changed source or webm size). On real iOS Safari (which does NOT support WebM) this is moot — Safari will correctly pick mp4-mobile. Recommended fix (also carries iteration_4 rec): lazy-init `useState(() => typeof window !== 'undefined' && window.innerWidth < 768)` so the very first render emits mobile MP4 first. This is the ONE remaining subtle deviation from the spec wording 'currentSrc endet auf hero-mobile.mp4'.",
+        "affected_selectors": ["video", "[data-testid=reference-video]", "[data-testid^=listing-card-] video"]
+      }
+    ],
+    "design_issues": [
+      {
+        "screen": "DigitalTwin canvas (mobile, carried from iteration_4)",
+        "issues": ["getComputedStyle(canvas).touchAction === 'auto' instead of expected 'pan-y'. Vertical scroll still works (scrollY delta = 500 as required), so functionally OK, but the explicit pan-y hint is not applied."]
+      }
+    ]
+  },
+  "test_report_links": ["/app/test_reports/iteration_5.json"],
+  "action_items": [
+    "(Real-device validation) Verify on a physical iOS Safari device that video.currentSrc actually ends on *-mobile.mp4. Playwright headless Chromium cannot emulate Safari's codec matrix (no WebM support).",
+    "(Minor, carried) Lazy-init isMobile in Hero.jsx / ListingPicture / ReferenceFeature: `useState(() => typeof window !== 'undefined' && window.innerWidth < 768)` — ensures mobile MP4 source is emitted on the very first render, avoiding the source-swap that lets Chromium settle on WebM.",
+    "(Minor, carried) Add explicit `touch-action: pan-y` inline style/CSS to the DigitalTwin <canvas>."
+  ],
+  "critical_code_review_comments": [
+    "useVideo.js IntersectionObserver correctly observes containerRef when supplied; threshold=0.6 (with 0/0.3/0.6/1 gradations); pause on out-of-view; single-video coordinator (currentPlaying) verified.",
+    "MP4-vor-WebM ordering confirmed in DOM (Hero.jsx L116-117, Objekte.jsx L238-241, L532-535). Only React initial-state race prevents Chromium from picking MP4 — see integration issue above.",
+    "craco.config.js MIME middleware at the very end of all wrappings: /media/*.avif → image/avif, *.mp4 → video/mp4, *.webm → video/webm all verified via curl on the preview URL.",
+    "No horizontal overflow at 390 or 412; document.documentElement.scrollWidth === window.innerWidth exactly (0px delta)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "not tested (frontend-only iteration)", "frontend": "100% functional (all 9 checks pass); 1 codec-selection nuance flagged for iOS-device confirmation"},
+  "test_credentials": "n/a",
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Playwright emulation of iPhone/Android uses headless Chromium — codec matrix differs from real iOS Safari. All spec functionality (autoplay, mobile URL, IntersectionObserver on parent, MIME types, no-overflow, canvas non-blocking, chat) works. Only lingering wording issue: currentSrc ends on *-mobile.webm under Chromium; on real iOS Safari it will end on *-mobile.mp4 because Safari cannot play WebM. Consider lazy-init of isMobile if strict MP4 selection in Chromium matters.",
+  "rca of the issue": "Chromium codec selection lands on *-mobile.webm despite MP4-first source order: (1) isMobile initialised useState(false); (2) first paint emits desktop <source> src (e.g. /media/hero.mp4 + /media/hero.webm); (3) HTMLMediaElement begins resource selection on the desktop URLs; (4) mount-effect flips isMobile → true, React updates the src attributes in-place; (5) media element re-invokes resource selection with the new sources, and (in Chromium) picks the WebM entry. On iOS Safari, step 5 will pick MP4 because Safari cannot play WebM. Fix: lazy-init isMobile so step 2 already emits mobile MP4 first, and Chromium picks it deterministically."
+}

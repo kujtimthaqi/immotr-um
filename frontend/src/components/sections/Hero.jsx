@@ -9,7 +9,7 @@ export default function Hero() {
   const videoRef = useRef(null);
   const [mouse, setMouse] = useState({ x: 0, y: 0 });
   const [videoReady, setVideoReady] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
   const [blocked, setBlocked] = useState(false);
   const reduced = usePrefersSaveMotion();
 

@@ -30,7 +30,7 @@ export default function Objekte() {
   const [listings, setListings] = useState([]);
   const [hoverIdx, setHoverIdx] = useState(null);
   const [inquiryFor, setInquiryFor] = useState(null);
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
   const twinRef = useRef(null);
   const [showTwin, setShowTwin] = useState(false);
 
@@ -466,7 +466,7 @@ function Field({ label, required, children }) {
 function ListingPicture({ src, alt, videoSrc, hoverToPlay = false, autoInView = false }) {
   const m = /^(\/media\/[^/]+?)-(?:800|1600|2400)\.webp$/.exec(src || "");
   const [hover, setHover] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
   const reduced = usePrefersSaveMotion();
   useEffect(() => {
     const c = () => setIsMobile(window.innerWidth < 768);
