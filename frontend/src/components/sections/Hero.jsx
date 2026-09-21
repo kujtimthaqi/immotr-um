@@ -3,7 +3,11 @@ import { motion, useScroll, useTransform } from "framer-motion";
 
 export default function Hero() {
   const containerRef = useRef(null);
+  const videoRef = useRef(null);
   const [mouse, setMouse] = useState({ x: 0, y: 0 });
+  const [videoReady, setVideoReady] = useState(false);
+  const [useVideo, setUseVideo] = useState(false);
+
   const { scrollYProgress } = useScroll({ target: containerRef, offset: ["start start", "end start"] });
   const yImg = useTransform(scrollYProgress, [0, 1], [0, 80]);
   const yOverlay = useTransform(scrollYProgress, [0, 1], [0, 120]);
@@ -18,16 +22,29 @@ export default function Hero() {
     return () => window.removeEventListener("mousemove", onMove);
   }, []);
 
+  // Decide if we should use the video: >= md and no reduced motion and tab visible
+  useEffect(() => {
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const isDesktop = window.matchMedia("(min-width: 768px)").matches;
+    if (reduced || !isDesktop) return;
+    if (document.visibilityState !== "visible") return;
+    setUseVideo(true);
+    const onVis = () => {
+      if (document.visibilityState !== "visible") {
+        videoRef.current?.pause();
+      } else {
+        videoRef.current?.play().catch(() => {});
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
+
   const scrollTo = (id) => (e) => {
     e.preventDefault();
     const el = document.getElementById(id);
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   };
-
-  const [hasVideo, setHasVideo] = useState(false);
-  useEffect(() => {
-    fetch("/media/hero.mp4", { method: "HEAD" }).then(r => setHasVideo(r.ok)).catch(() => setHasVideo(false));
-  }, []);
 
   return (
     <section
@@ -36,47 +53,56 @@ export default function Hero() {
       data-testid="hero-section"
       className="relative w-full h-[100svh] min-h-[640px] overflow-hidden bg-navy"
     >
-      {/* Background image with Ken-Burns + parallax + mouse */}
+      {/* Background: poster + video */}
       <motion.div
         className="absolute inset-0"
-        style={{ y: yImg, transform: `translate3d(${mouse.x * -18}px, ${mouse.y * -12}px, 0)` }}
+        style={{ y: yImg, transform: `translate3d(${mouse.x * -14}px, ${mouse.y * -10}px, 0)` }}
       >
+        {/* Poster – always present. Ken-Burns only while video not ready. */}
         <picture>
           <source
             type="image/avif"
-            srcSet="/media/hero-800.avif 800w, /media/hero-1600.avif 1600w, /media/hero-2400.avif 2400w"
+            srcSet="/media/hero-poster-800.avif 800w, /media/hero-poster-1600.avif 1600w"
             sizes="100vw"
           />
           <source
             type="image/webp"
-            srcSet="/media/hero-800.webp 800w, /media/hero-1600.webp 1600w, /media/hero-2400.webp 2400w"
+            srcSet="/media/hero-poster-800.webp 800w, /media/hero-poster-1600.webp 1600w"
             sizes="100vw"
           />
           <img
-            src="/media/hero-1600.webp"
+            src="/media/hero-poster-1600.webp"
             alt="Bodensee bei Blauer Stunde — Immo Traeum AG"
             fetchpriority="high"
             decoding="async"
-            className="absolute inset-0 w-full h-full object-cover animate-kenBurns"
+            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-[900ms] ${videoReady ? "opacity-0" : "opacity-100"} ${!videoReady ? "animate-kenBurnsSubtle" : ""}`}
           />
         </picture>
-        {hasVideo && (
+
+        {useVideo && (
           <video
+            ref={videoRef}
             src="/media/hero.mp4"
+            poster="/media/hero-poster-1600.webp"
             autoPlay
             muted
             loop
             playsInline
-            className="absolute inset-0 w-full h-full object-cover"
-          />
+            preload="auto"
+            onCanPlay={() => setVideoReady(true)}
+            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-[900ms] ${videoReady ? "opacity-100" : "opacity-0"}`}
+          >
+            <source src="/media/hero.webm" type="video/webm" />
+            <source src="/media/hero.mp4" type="video/mp4" />
+          </video>
         )}
       </motion.div>
 
       {/* Dark gradient overlays */}
-      <div className="absolute inset-0 bg-gradient-to-b from-navy/50 via-navy/20 to-navy" />
-      <div className="absolute inset-0 bg-gradient-to-r from-navy/70 via-transparent to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-b from-navy/45 via-transparent to-navy" />
+      <div className="absolute inset-0 bg-gradient-to-r from-navy/70 via-navy/10 to-transparent" />
 
-      {/* SVG Gold parcel overlay */}
+      {/* HUD scan line + refined SVG (no big polygon over the video's own gold parcel) */}
       <motion.svg
         viewBox="0 0 1600 900"
         className="absolute inset-0 w-full h-full pointer-events-none"
@@ -84,46 +110,48 @@ export default function Hero() {
         style={{ y: yOverlay }}
       >
         <defs>
-          <linearGradient id="goldGrad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#E6D3A8"/>
-            <stop offset="100%" stopColor="#C9A96E"/>
+          <linearGradient id="scanGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="rgba(201,169,110,0)"/>
+            <stop offset="50%" stopColor="rgba(230,211,168,0.55)"/>
+            <stop offset="100%" stopColor="rgba(201,169,110,0)"/>
           </linearGradient>
         </defs>
-        <g className="glow-parcel">
-          <polygon
-            className="draw-parcel"
-            points="820,420 1020,380 1120,470 1080,600 880,640 780,540"
-            fill="rgba(201,169,110,0.08)"
-            stroke="url(#goldGrad)"
-            strokeWidth="1.6"
-          />
-          <circle cx="820" cy="420" r="3" fill="#E6D3A8"/>
-          <circle cx="1020" cy="380" r="3" fill="#E6D3A8"/>
-          <circle cx="1120" cy="470" r="3" fill="#E6D3A8"/>
-          <circle cx="1080" cy="600" r="3" fill="#E6D3A8"/>
-          <circle cx="880" cy="640" r="3" fill="#E6D3A8"/>
-          <circle cx="780" cy="540" r="3" fill="#E6D3A8"/>
+        {/* Vertical golden hairline */}
+        <line x1="50%" y1="0" x2="50%" y2="100%" stroke="rgba(201,169,110,0.18)" strokeWidth="0.5"/>
+        {/* Horizontal scan line, animated */}
+        <line x1="0" y1="60%" x2="100%" y2="60%" stroke="url(#scanGrad)" strokeWidth="0.75">
+          <animate attributeName="y1" values="20%;80%;20%" dur="9s" repeatCount="indefinite" />
+          <animate attributeName="y2" values="20%;80%;20%" dur="9s" repeatCount="indefinite" />
+        </line>
+        {/* Corner brackets */}
+        <g stroke="rgba(201,169,110,0.55)" strokeWidth="1" fill="none">
+          <path d="M40,40 L40,80 M40,40 L80,40" />
+          <path d="M1560,40 L1560,80 M1560,40 L1520,40" />
+          <path d="M40,860 L40,820 M40,860 L80,860" />
+          <path d="M1560,860 L1560,820 M1560,860 L1520,860" />
         </g>
       </motion.svg>
 
-      {/* Label pins */}
+      {/* HUD label pins */}
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 3.4, duration: 0.9, ease: "easeOut" }}
-        className="hidden md:block absolute top-[38%] right-[16%]"
+        transition={{ delay: 1.6, duration: 0.9, ease: "easeOut" }}
+        className="hidden md:flex absolute top-[26%] right-[10%] items-center gap-2"
       >
-        <div className="glass px-3 py-1.5 rounded-full text-[11px] uppercase tracking-[0.2em] text-gold-light">
+        <span className="w-6 h-px bg-gold"/>
+        <div className="glass px-3 py-1.5 rounded-full text-[11px] uppercase tracking-[0.22em] text-gold-light">
           Rorschach · 9400
         </div>
       </motion.div>
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 3.7, duration: 0.9, ease: "easeOut" }}
-        className="hidden md:block absolute top-[62%] right-[10%]"
+        transition={{ delay: 2.0, duration: 0.9, ease: "easeOut" }}
+        className="hidden md:flex absolute top-[68%] right-[7%] items-center gap-2"
       >
-        <div className="glass px-3 py-1.5 rounded-full text-[11px] uppercase tracking-[0.2em] text-gold-light">
+        <span className="w-6 h-px bg-gold"/>
+        <div className="glass px-3 py-1.5 rounded-full text-[11px] uppercase tracking-[0.22em] text-gold-light">
           Bewertet · CHF —
         </div>
       </motion.div>
@@ -148,7 +176,7 @@ export default function Hero() {
             <span className="italic text-gold-light">Immobilien-</span><br/>
             <span className="text-gold">management.</span>
           </h1>
-          <p className="mt-8 max-w-xl text-base md:text-lg text-white/80 leading-relaxed font-light">
+          <p className="mt-8 max-w-xl text-base md:text-lg text-white/85 leading-relaxed font-light">
             <span className="text-gold-light">Bewerten. Bewirtschaften. Beraten.</span><br/>
             Diskret, präzise und persönlich — zwischen Bodensee und Alpen.
           </p>
@@ -197,6 +225,14 @@ export default function Hero() {
           </div>
         </div>
       </motion.div>
+
+      <style>{`
+        @keyframes kenBurnsSubtle {
+          0% { transform: scale(1.05) translate3d(0, 0, 0); }
+          100% { transform: scale(1.0) translate3d(-0.5%, -0.5%, 0); }
+        }
+        .animate-kenBurnsSubtle { animation: kenBurnsSubtle 18s ease-out forwards; }
+      `}</style>
     </section>
   );
 }

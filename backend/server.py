@@ -48,6 +48,7 @@ class Listing(BaseModel):
     year: Optional[int] = None
     pdf_url: Optional[str] = None
     image_url: Optional[str] = None
+    video_url: Optional[str] = None
     description: Optional[str] = None
     lat: Optional[float] = None
     lng: Optional[float] = None
@@ -71,6 +72,7 @@ class ListingCreate(BaseModel):
     year: Optional[int] = None
     pdf_url: Optional[str] = None
     image_url: Optional[str] = None
+    video_url: Optional[str] = None
     description: Optional[str] = None
     lat: Optional[float] = None
     lng: Optional[float] = None
@@ -428,6 +430,7 @@ async def seed_data():
                 year=2008,
                 pdf_url="https://www.immo-traeum.li/Objekte/Obj218.pdf",
                 image_url="/media/dachwohnung-800.webp",
+                video_url="/media/dachwohnung.mp4",
                 description="Ausgebauter Dachstock mit hochwertiger Ausstattung, viel Tageslicht, ruhige zentrale Lage in Rorschach.",
                 lat=47.4788,
                 lng=9.4907,
@@ -446,6 +449,7 @@ async def seed_data():
                 status="available",
                 area=18,
                 pdf_url="https://www.immo-traeum.li/Objekte/Obj2214.pdf",
+                image_url="/media/lagerraum-800.webp",
                 description="Kühler Naturkeller, ideal für Wein, Vorräte oder Archiv.",
                 lat=47.4772,
                 lng=9.4885,

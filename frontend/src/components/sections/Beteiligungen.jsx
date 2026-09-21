@@ -20,6 +20,36 @@ export default function Beteiligungen() {
       <div className="max-w-[1400px] mx-auto px-6 md:px-10 relative">
         <SectionHeader index="05" total="08" eyebrow="Immobilienbeteiligungen" title="Passiv beteiligt. Persönlich betreut." subtitle="Wohnungsknappheit, stabile Preisentwicklung, wachsende Nachfrage — und ein Team, das die Objekte täglich pflegt." />
 
+        {/* Wide architecture-model hero visual */}
+        <motion.div
+          initial={{ opacity: 0, y: 30, filter: "blur(10px)" }}
+          whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+          viewport={{ once: true, margin: "-60px" }}
+          transition={{ duration: 0.9 }}
+          className="mt-12 relative rounded-2xl overflow-hidden border border-[color:var(--gold)]/40 gold-glow"
+          style={{ aspectRatio: "16 / 7" }}
+        >
+          <picture>
+            <source type="image/avif" srcSet="/media/invest-1600.avif" />
+            <source
+              type="image/webp"
+              srcSet="/media/invest-800.webp 800w, /media/invest-1600.webp 1600w"
+              sizes="(max-width: 768px) 100vw, 1200px"
+            />
+            <img
+              src="/media/invest-1600.webp"
+              alt="Weisses Architekturmodell mit Gold-Linien"
+              loading="lazy"
+              decoding="async"
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+          </picture>
+          <div className="absolute inset-0 bg-gradient-to-t from-[#060d1c] via-transparent to-transparent"/>
+          <div className="absolute bottom-4 left-4 md:bottom-6 md:left-6 glass px-3 py-1.5 rounded-full text-[10px] uppercase tracking-[0.28em] text-gold-light">
+            Portfolio · schematisch
+          </div>
+        </motion.div>
+
         <div className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-6">
           {STATS.map((s, i) => <StatCard key={s.label} {...s} idx={i}/>)}
         </div>

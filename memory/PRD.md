@@ -44,3 +44,20 @@ Design: High-End PropTech (Niveau VistaView / cinematic). Navy #0A1428 + Champag
 ## Credentials
 - Admin Passwort (env): `ADMIN_PASSWORD` in `/app/backend/.env` (24-stellig zufällig).
 - LLM: `EMERGENT_LLM_KEY` in `/app/backend/.env`.
+
+## Update (Feb 2026 — Higgsfield Pro assets)
+- New assets in `/app/frontend/public/media/`:
+  - `hero.mp4` (1.7 MB) + `hero.webm` (1.3 MB) — 10 s aerial drone push-in with gold parcel
+  - `hero-poster-{800,1600}.{webp,avif}` — first-frame poster, LCP target
+  - `dachwohnung.mp4` (679 KB) + `dachwohnung.webm` (508 KB) — 5 s interior flythrough
+  - `dachwohnung-{800,1600}.{webp,avif}` — interior still
+  - `landhaus-{800,1600}.{webp,avif}` — reference Arezen
+  - `lagerraum-{800,1600}.{webp,avif}` — vault cellar
+  - `relocation-{800,1600}.{webp,avif}` — key + lake view (4:5)
+  - `erbe-{800,1600}.{webp,avif}` — desk with family album (4:5)
+  - `invest-{800,1600}.{webp,avif}` — white architecture model with gold lines
+- Hero.jsx: `<picture>` poster with `fetchpriority="high"` + AVIF/WebP srcset; video crossfades in on `canplay`, only when viewport ≥ 768 px, no reduced-motion, tab visible. Ken-Burns downgraded to subtle (5 %). SVG parcel replaced with corner brackets + vertical hairline + animated scan line (avoids collision with gold parcel already burned into the video).
+- Objekte / ListingPicture: hover triggers `dachwohnung.webm/mp4` crossfade; card thumbnail width upsized to 32/40 (128/160 px).
+- Relocation.jsx: split cards get parallax background images with navy bottom-gradient + gold hairlines in `mix-blend-screen`.
+- Beteiligungen.jsx: `invest-1600` visual (16:7) with gold-glow border above the stats grid.
+- Backend Listing model gained `video_url` field. Seed: Dachwohnung `video_url=/media/dachwohnung.mp4`; Lagerraum `image_url=/media/lagerraum-800.webp`.

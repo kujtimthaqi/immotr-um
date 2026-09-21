@@ -158,11 +158,16 @@ function ListingCard({ listing, idx, active, onEnter, onLeave, onInquire }) {
     >
       <div className="flex gap-0">
         {listing.image_url ? (
-          <div className="w-28 md:w-32 shrink-0 relative">
-            <ListingPicture src={listing.image_url} alt={listing.title} />
+          <div className="w-32 md:w-40 shrink-0 relative">
+            <ListingPicture
+              src={listing.image_url}
+              alt={listing.title}
+              videoSrc={listing.video_url}
+              hoverToPlay={!!listing.video_url}
+            />
           </div>
         ) : (
-          <div className="w-28 md:w-32 shrink-0 bg-gradient-to-br from-[#13233F] to-[#0A1428] relative">
+          <div className="w-32 md:w-40 shrink-0 bg-gradient-to-br from-[#13233F] to-[#0A1428] relative">
             <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full opacity-40">
               <line x1="0" y1="80" x2="100" y2="10" stroke="#C9A96E" strokeWidth="0.5"/>
               <line x1="20" y1="100" x2="100" y2="40" stroke="#C9A96E" strokeWidth="0.5"/>
@@ -295,25 +300,60 @@ function Field({ label, required, children }) {
   );
 }
 
-// Renders an optimized <picture> when the image_url follows the /media/*-800.webp naming; else plain <img>.
-function ListingPicture({ src, alt }) {
-  const m = /^(\/media\/[^/]+?)-800\.webp$/.exec(src || "");
+// Renders an optimized <picture> when the image_url follows the /media/*-800.webp or /media/*-1600.webp naming; else plain <img>.
+function ListingPicture({ src, alt, videoSrc, hoverToPlay = false }) {
+  const m = /^(\/media\/[^/]+?)-(?:800|1600)\.webp$/.exec(src || "");
+  const [hover, setHover] = useState(false);
+  const vRef = useRef(null);
+
+  useEffect(() => {
+    if (!videoSrc || !vRef.current) return;
+    if (hover) { vRef.current.currentTime = 0; vRef.current.play().catch(() => {}); }
+    else { vRef.current.pause(); }
+  }, [hover, videoSrc]);
+
   if (!m) return <img src={src} alt={alt} loading="lazy" decoding="async" className="w-full h-full object-cover"/>;
   const base = m[1];
   return (
-    <picture>
-      <source
-        type="image/webp"
-        srcSet={`${base}-800.webp 800w, ${base}-1600.webp 1600w, ${base}-2400.webp 2400w`}
-        sizes="(max-width: 768px) 112px, 128px"
-      />
-      <img
-        src={`${base}-800.webp`}
-        alt={alt}
-        loading="lazy"
-        decoding="async"
-        className="w-full h-full object-cover"
-      />
-    </picture>
+    <div
+      className="w-full h-full relative overflow-hidden"
+      onMouseEnter={() => hoverToPlay && setHover(true)}
+      onMouseLeave={() => hoverToPlay && setHover(false)}
+      onFocus={() => hoverToPlay && setHover(true)}
+      onBlur={() => hoverToPlay && setHover(false)}
+      tabIndex={hoverToPlay ? 0 : -1}
+    >
+      <picture>
+        <source
+          type="image/avif"
+          srcSet={`${base}-1600.avif`}
+        />
+        <source
+          type="image/webp"
+          srcSet={`${base}-800.webp 800w, ${base}-1600.webp 1600w`}
+          sizes="(max-width: 768px) 112px, 128px"
+        />
+        <img
+          src={`${base}-800.webp`}
+          alt={alt}
+          loading="lazy"
+          decoding="async"
+          className={`w-full h-full object-cover transition-opacity duration-500 ${hover && videoSrc ? "opacity-0" : "opacity-100"}`}
+        />
+      </picture>
+      {videoSrc && (
+        <video
+          ref={vRef}
+          muted
+          loop
+          playsInline
+          preload="none"
+          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${hover ? "opacity-100" : "opacity-0"}`}
+        >
+          <source src={videoSrc.replace(/\.mp4$/, ".webm")} type="video/webm" />
+          <source src={videoSrc} type="video/mp4" />
+        </video>
+      )}
+    </div>
   );
 }
