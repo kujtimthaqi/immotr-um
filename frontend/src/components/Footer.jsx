@@ -45,7 +45,7 @@ export default function Footer() {
         </div>
       </div>
       <div className="border-t border-[color:var(--gold)]/10">
-        <div className="max-w-[1400px] mx-auto px-6 md:px-10 py-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+        <div className="max-w-[1400px] mx-auto px-6 md:px-10 py-6 pb-24 md:pb-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
           <div className="text-xs text-white/50">© 2026 Immo Traeum AG. Alle Rechte vorbehalten.</div>
           <div className="text-xs text-white/40">Zwischen Bodensee und Alpen · CH · FL</div>
         </div>

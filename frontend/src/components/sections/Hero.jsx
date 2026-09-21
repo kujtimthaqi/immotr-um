@@ -69,7 +69,7 @@ export default function Hero() {
       id="hero"
       ref={containerRef}
       data-testid="hero-section"
-      className="relative w-full h-[100svh] min-h-[640px] overflow-hidden bg-navy"
+      className="relative w-full h-[100svh] min-h-[560px] md:min-h-[640px] overflow-hidden bg-navy"
     >
       {/* Background: poster + video */}
       <motion.div
@@ -137,7 +137,7 @@ export default function Hero() {
       {/* HUD scan line + refined SVG (no big polygon over the video's own gold parcel) */}
       <motion.svg
         viewBox="0 0 1600 900"
-        className="absolute inset-0 w-full h-full pointer-events-none"
+        className="absolute inset-0 w-full h-full pointer-events-none hidden md:block"
         preserveAspectRatio="xMidYMid slice"
         style={{ y: yOverlay }}
       >
@@ -200,9 +200,12 @@ export default function Hero() {
           className="max-w-3xl"
         >
           <Crest variant="hero" className="mb-4" />
-          <div className="flex items-center gap-3 mb-6">
-            <span className="w-8 h-px bg-gold"/>
-            <span className="text-[11px] uppercase tracking-[0.32em] text-gold">Real Estate · Bodensee &amp; Alpen</span>
+          <div className="flex items-center gap-3 mb-6 max-w-full">
+            <span className="w-6 md:w-8 h-px bg-gold shrink-0"/>
+            <span className="text-[10px] md:text-[11px] uppercase tracking-[0.18em] md:tracking-[0.32em] text-gold whitespace-nowrap">
+              <span className="md:hidden">Bodensee · Alpen</span>
+              <span className="hidden md:inline">Real Estate · Bodensee &amp; Alpen</span>
+            </span>
           </div>
           <h1 data-testid="hero-title" className="font-serif font-light tracking-tight text-white leading-[0.98] text-[42px] sm:text-[64px] md:text-[84px] lg:text-[104px]">
             Traumhaftes<br/>
@@ -236,12 +239,12 @@ export default function Hero() {
         </motion.div>
       </motion.div>
 
-      {/* Bottom stats bar */}
+      {/* Bottom stats bar — desktop only (mobile: no absolute overlay above CTAs) */}
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 1.4, duration: 0.9, ease: "easeOut" }}
-        className="absolute bottom-6 md:bottom-8 inset-x-0 z-10"
+        className="hidden md:block absolute bottom-8 inset-x-0 z-10"
       >
         <div className="max-w-[1400px] mx-auto px-6 md:px-10">
           <div className="glass rounded-full px-5 md:px-8 py-3 md:py-4 flex flex-wrap items-center justify-between gap-4">

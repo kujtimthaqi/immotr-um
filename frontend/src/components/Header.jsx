@@ -52,17 +52,17 @@ export default function Header() {
       }`}
       style={{ WebkitBackdropFilter: scrolled ? "blur(20px)" : "blur(8px)" }}
     >
-      <div className="max-w-[1400px] mx-auto px-6 md:px-10 h-16 md:h-20 flex items-center justify-between">
-        <Link to="/" data-testid="brand-link" className="group flex items-center gap-3">
+      <div className="max-w-[1400px] mx-auto px-4 md:px-10 h-16 md:h-20 flex items-center justify-between gap-3">
+        <Link to="/" data-testid="brand-link" className="group flex items-center gap-2 md:gap-3 min-w-0">
           <Crest variant="header" />
           {!hasCrest && (
-            <svg width="28" height="28" viewBox="0 0 28 28" className="text-gold">
+            <svg width="24" height="24" viewBox="0 0 28 28" className="text-gold shrink-0 md:w-7 md:h-7">
               <path d="M4 20 L14 6 L24 20 Z" fill="none" stroke="currentColor" strokeWidth="1.2"/>
               <circle cx="14" cy="14" r="1.6" fill="currentColor"/>
             </svg>
           )}
-          <div className="leading-tight">
-            <div className="font-serif text-[17px] md:text-[18px] font-light tracking-tight text-white dark:text-white">
+          <div className="leading-tight min-w-0">
+            <div className="font-serif text-[15px] md:text-[18px] font-light tracking-tight text-white dark:text-white whitespace-nowrap">
               Immo Traeum <span className="text-gold">AG</span>
             </div>
             <div className="text-[10px] uppercase tracking-[0.25em] text-gold-light/70 hidden md:block">Real Estate Curators</div>
@@ -83,12 +83,12 @@ export default function Header() {
           ))}
         </nav>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 md:gap-3 shrink-0">
           <button
             onClick={toggle}
             data-testid="theme-toggle"
             aria-label="Farbschema wechseln"
-            className="h-9 w-9 rounded-full glass flex items-center justify-center text-gold hover:text-gold-light transition-colors"
+            className="h-9 w-9 rounded-full glass flex items-center justify-center text-gold hover:text-gold-light transition-colors shrink-0"
           >
             {theme === "dark" ? <Sun size={16} strokeWidth={1.5}/> : <Moon size={16} strokeWidth={1.5}/>}
           </button>

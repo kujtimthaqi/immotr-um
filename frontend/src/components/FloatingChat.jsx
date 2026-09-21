@@ -18,11 +18,22 @@ export default function FloatingChat() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [sessionId] = useState(() => crypto.randomUUID());
+  const [visible, setVisible] = useState(false);
   const bottomRef = useRef(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, open]);
+
+  // Reveal only after the user has scrolled past the hero CTAs (or after 6s idle).
+  useEffect(() => {
+    const onScroll = () => {
+      if (window.scrollY > 120) { setVisible(true); window.removeEventListener("scroll", onScroll); }
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    const t = setTimeout(() => setVisible(true), 6000);
+    return () => { window.removeEventListener("scroll", onScroll); clearTimeout(t); };
+  }, []);
 
   const send = async (text) => {
     const msg = (text ?? input).trim();
@@ -83,14 +94,17 @@ export default function FloatingChat() {
         onClick={() => setOpen(v => !v)}
         data-testid="chat-toggle"
         initial={{ scale: 0, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ delay: 1.2, duration: 0.6, type: "spring" }}
-        className="fixed z-[70] h-14 w-14 rounded-full flex items-center justify-center"
+        animate={{ scale: visible || open ? 1 : 0, opacity: visible || open ? 1 : 0 }}
+        transition={{ duration: 0.4, type: "spring" }}
+        className="fixed z-[70] h-13 w-13 md:h-14 md:w-14 rounded-full flex items-center justify-center"
         style={{
-          right: "calc(1.25rem + env(safe-area-inset-right, 0px))",
-          bottom: "calc(1.25rem + env(safe-area-inset-bottom, 0px))",
+          width: "clamp(48px, 13vw, 56px)",
+          height: "clamp(48px, 13vw, 56px)",
+          right: "calc(1rem + env(safe-area-inset-right, 0px))",
+          bottom: "calc(1rem + env(safe-area-inset-bottom, 0px))",
           background: "radial-gradient(circle at 30% 30%, #E6D3A8 0%, #C9A96E 55%, #7a5c2a 100%)",
           boxShadow: "0 12px 40px rgba(201,169,110,0.55), 0 0 0 1px rgba(255,255,255,0.15) inset, 0 0 80px rgba(201,169,110,0.3)",
+          pointerEvents: visible || open ? "auto" : "none",
         }}
       >
         <AnimatePresence mode="wait">
