@@ -1,0 +1,40 @@
+{
+  "summary": "First-run testing of Immo Traeum AG MVP. Backend: 19/19 pytest tests passed covering media assets, listings, valuation (LLM), inquiries, admin auth, chat SSE stream, and no-15-Jahre regression. Frontend: all 8 sections render with no runtime overlay, hero <picture> uses AVIF + WebP srcset (800/1600/2400w) with fetchpriority='high' & decoding='async', Beteiligungen shows the Bundesamt-fuer-Statistik citation, R3F Digital Twin canvas mounts inside Objekte section, listing images serve from /media/dachwohnung-800.webp, Bewertung wizard end-to-end produces a Swiss-formatted valuation (586'177), Kontakt form persists inquiry (admin shows 3 Anfragen), Admin login rejects wrong password and accepts correct one showing 7 seeded objects, dark<->light theme toggle works.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/listings (write)", "issue": "Body validation runs before admin-password check, so requests without X-Admin-Password can return 422 instead of 401. Not a security issue (still rejected) but inconsistent with test expectation and preferred API contract."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Hero <picture>", "issues": ["AVIF <source> only lists a single hero-2400.avif (no 800w/1600w AVIF variants). WebP srcset is complete (800/1600/2400). Minor: browsers on smaller viewports will download the 2400px AVIF."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "(Optional) Generate hero-800.avif and hero-1600.avif and include them in the AVIF srcset for consistent responsive behaviour.",
+    "(Optional) Reorder POST /api/listings to check X-Admin-Password header before Pydantic validation so unauthorised writes return 401 rather than 422."
+  ],
+  "critical_code_review_comments": [
+    "server.py is a single 531-line file — acceptable for MVP but consider splitting into routers (listings, valuation, chat, admin) if it grows further.",
+    "Admin auth relies solely on a plain-text header comparison to ADMIN_PASSWORD; adequate for internal admin panel but should be documented (no rate limiting on /api/admin/login).",
+    "Chat SSE endpoint has no timeout/size limits; long user prompts could keep the stream open. Fine for MVP.",
+    "COMPANY_INFO is embedded inline in server.py and correctly no longer mentions 'Erfahrung: über 15 Jahre.'"
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py (new)"
+  ],
+  "success_rate": {"backend": "100% (19/19)", "frontend": "100% of tested flows"},
+  "test_credentials": "Admin password: 8dl0ex4DCHwjk9juezvxmt4m (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "One TEST_ inquiry created via public /api/inquiries and one TEST_Playwright inquiry via UI. Non-destructive; can be cleaned via admin panel if desired.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend regression file at /app/backend/tests/backend_test.py covers media assets, listings, valuation (real LLM call ~5-10s), inquiries CRUD, admin auth, chat SSE streaming, and no-15-Jahre regression. Chat endpoint expects {session_id, message} not messages[]. Old PNG paths /media/*.png now fall through to the SPA index.html catch-all (text/html) rather than 404 — that is acceptable because the image files are physically removed. React is 18.3.1 by design; do not upgrade.",
+  "rca of the issue": "N/A — no bugs to root-cause. Regression fixes (15-Jahre removal + <picture>/AVIF+WebP optimisation) all verified in place."
+}

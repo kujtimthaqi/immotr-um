@@ -42,7 +42,11 @@ export default function Hero() {
         style={{ y: yImg, transform: `translate3d(${mouse.x * -18}px, ${mouse.y * -12}px, 0)` }}
       >
         <picture>
-          <source type="image/avif" srcSet="/media/hero-2400.avif" />
+          <source
+            type="image/avif"
+            srcSet="/media/hero-800.avif 800w, /media/hero-1600.avif 1600w, /media/hero-2400.avif 2400w"
+            sizes="100vw"
+          />
           <source
             type="image/webp"
             srcSet="/media/hero-800.webp 800w, /media/hero-1600.webp 1600w, /media/hero-2400.webp 2400w"
