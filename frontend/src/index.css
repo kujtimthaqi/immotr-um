@@ -207,6 +207,10 @@ body[data-theme="light"] section#hero .text-gold-light\/80,
 body[data-theme="light"] section#hero .text-gold-light\/70 { color: #E6D3A8 !important; }
 body[data-theme="light"] section#hero .text-gold { color: #C9A96E !important; }
 
+/* Familienwappen-Glow: dark mode = feiner heller Aussenschein damit dunkles Blau/Schwarz auf Navy lesbar bleibt. Light mode = kein Schein. */
+.crest-glow { filter: drop-shadow(0 0 1px rgba(247, 244, 238, 0.6)); }
+body[data-theme="light"] .crest-glow { filter: none; }
+
 /* Buttons */
 .btn-gold {
   background: linear-gradient(180deg, #E6D3A8 0%, #C9A96E 100%);
