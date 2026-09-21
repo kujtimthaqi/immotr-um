@@ -1,0 +1,42 @@
+{
+  "summary": "Iteration_3 regression testing of the media upscale (WebP+AVIF @800/1600/2400 + hero-poster @3200), new landhaus.mp4/webm, Landhaus reference video wiring, ReferenceFeature card + Arezen glass-overlay-in-3D-Twin, and content-type-guarded <Crest/> scaffolding. Backend: 61/61 pytest tests passed (all new assets served with image/* content-types across 800/1600/2400 widths per family, hero-poster additionally at 3200 for both formats; hero.mp4<=8MB, hero.webm OK, dachwohnung.mp4<=3MB, landhaus.mp4=1'583'090B (~1.51MB) <=5MB with video/mp4, landhaus.webm=1'647'389B (~1.57MB) <6MB; old hero-*/hero.png paths return HTML/404; GET /api/listings returns 7 with Landhaus title starting with 'Totalsanierung historisches Landhaus', video_url=/media/landhaus.mp4, highlight=true; valuation LLM produces German commentary with min<=expected<=max; inquiries persist; admin auth (correct/wrong pw) works; chat SSE streams German deltas and terminates with type:'done'; frontend HTML free of '15 Jahre' claims). Frontend Playwright verified: Hero <picture> DOM has AVIF <source> containing hero-poster-{800,1600,2400,3200}.avif AND WebP <source> containing hero-poster-{800,1600,2400,3200}.webp; <img fetchpriority='high'> present. Crest testids (crest-header/hero/trust/footer) are all ABSENT in the DOM (as expected, /brand/wappen.png missing → content-type guard returns nothing); Header still renders SVG house icon inside a[data-testid='brand-link']. Referenzen tab (data-testid='objekte-tab-reference') reveals data-testid='reference-feature' containing a <picture> for landhaus and a desktop <video> with two <source> (webm THEN mp4). Arezen pointer (data-testid='arezen-pointer', count=1) hover produces overlay containing 'nicht in Rorschach' text; DigitalTwin <canvas> remains mounted (canvas count unchanged before/after hover). Dachwohnung ListingPicture WebP <source> srcset is '800w, 1600w, 2400w'. Bewertung wizard end-to-end completes and populates val-result-number (LLM returned a small negative CHF with default zero inputs — same known cosmetic issue flagged in iteration_2, not a blocker). Kontakt form UI accessible with all fields.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/listings (write)", "issue": "Body validation still runs before admin-password check (returns 422 without header). Carried from previous iterations."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Bewertung wizard", "issues": ["Submitting with default/empty area+rooms still allows LLM to return negative CHF (observed -2'180). Same known issue from iteration_2 — cosmetic; disable val-submit or require sane defaults."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "(Optional, carried) Prevent Bewertung val-submit with zero/empty area & rooms.",
+    "(Optional, carried) Reorder POST /api/listings to check X-Admin-Password before Pydantic validation."
+  ],
+  "critical_code_review_comments": [
+    "Crest content-type guard (r.headers.get('content-type').startsWith('image/')) correctly defeats the SPA catch-all that returns text/html — no crest-* elements in DOM while /brand/wappen.png is missing. Good defensive design.",
+    "Header.jsx correctly conditions the SVG house icon fallback on !hasCrest (verified: SVG visible while crest missing).",
+    "Objekte.jsx ReferenceFeature and ArezenOverlayVideo isolate hover state; DigitalTwin canvas is NOT unmounted on hover — good, avoids WebGL context churn.",
+    "Hero <picture> now advertises full 800/1600/2400/3200 srcset for both AVIF and WebP; <img fetchpriority='high'> preserved.",
+    "Media file sizes are within budget: hero-poster-800.avif=17'894B, hero-poster-1600.webp=86'588B, landhaus.mp4=1.51MB, landhaus.webm=1.57MB."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py (parametrised full 3-width WebP + 2-width AVIF matrix for 7 asset families incl. hero-poster @3200; added landhaus.mp4/.webm size+ctype checks; added Landhaus listing highlight+video_url+title assertions; added HEAD test for hero-poster-3200.webp; added perf_sizes reporting test)"
+  ],
+  "success_rate": {"backend": "100% (61/61)", "frontend": "100% of tested flows"},
+  "test_credentials": "Admin password: 8dl0ex4DCHwjk9juezvxmt4m (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "1 TEST_ inquiry via POST /api/inquiries during pytest. Non-destructive.",
+  "perf_note": "LCP-relevant asset sizes: hero-poster-800.avif=17'894 bytes (~17.5 KB, matches expected ~18 KB); hero-poster-1600.webp=86'588 bytes (~84.6 KB, matches expected ~85 KB). landhaus.mp4=1'583'090 bytes (well under 5 MB budget); landhaus.webm=1'647'389 bytes (well under 6 MB).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend test file /app/backend/tests/backend_test.py now enforces the full asset matrix parametrically (edit _NON_HERO list or hero widths tuple to extend). Landhaus reference is now expected to have video_url=/media/landhaus.mp4 AND highlight=true AND title prefix 'Totalsanierung historisches Landhaus'. Arezen overlay is text-triggered ('nicht in Rorschach') and does NOT unmount the DigitalTwin canvas. /app/frontend/public/brand/ is intentionally empty — Crest component renders nothing until a real image/* wappen.png is uploaded there; Header SVG fallback must stay visible until then. React pinned 18.3.1.",
+  "rca of the issue": "N/A — no bugs. One carried cosmetic issue (Bewertung wizard accepts zero inputs → LLM can produce negative CHF)."
+}

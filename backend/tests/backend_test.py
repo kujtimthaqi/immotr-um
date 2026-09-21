@@ -16,30 +16,18 @@ def s():
 
 
 # ---------- Media assets (new Higgsfield Pro asset set) ----------
-NEW_ASSETS = [
-    "/media/hero-poster-800.webp",
-    "/media/hero-poster-800.avif",
-    "/media/hero-poster-1600.webp",
-    "/media/hero-poster-1600.avif",
-    "/media/dachwohnung-800.webp",
-    "/media/dachwohnung-1600.webp",
-    "/media/dachwohnung-1600.avif",
-    "/media/landhaus-800.webp",
-    "/media/landhaus-1600.webp",
-    "/media/landhaus-1600.avif",
-    "/media/lagerraum-800.webp",
-    "/media/lagerraum-1600.webp",
-    "/media/lagerraum-1600.avif",
-    "/media/relocation-800.webp",
-    "/media/relocation-1600.webp",
-    "/media/relocation-1600.avif",
-    "/media/erbe-800.webp",
-    "/media/erbe-1600.webp",
-    "/media/erbe-1600.avif",
-    "/media/invest-800.webp",
-    "/media/invest-1600.webp",
-    "/media/invest-1600.avif",
-]
+_NON_HERO = ["dachwohnung", "landhaus", "relocation", "erbe", "invest", "lagerraum"]
+NEW_ASSETS = []
+# Hero has 800/1600/2400/3200 in both webp+avif
+for w in (800, 1600, 2400, 3200):
+    NEW_ASSETS.append(f"/media/hero-poster-{w}.webp")
+    NEW_ASSETS.append(f"/media/hero-poster-{w}.avif")
+# Non-hero: webp @ 800/1600/2400 ; avif @ 800/1600
+for name in _NON_HERO:
+    for w in (800, 1600, 2400):
+        NEW_ASSETS.append(f"/media/{name}-{w}.webp")
+    for w in (800, 1600):
+        NEW_ASSETS.append(f"/media/{name}-{w}.avif")
 
 
 class TestMedia:
@@ -74,6 +62,33 @@ class TestMedia:
         r = s.get(f"{BASE_URL}/media/dachwohnung.webm", timeout=60, stream=True)
         assert r.status_code == 200
 
+    def test_landhaus_mp4(self, s):
+        r = s.get(f"{BASE_URL}/media/landhaus.mp4", timeout=60, stream=True)
+        assert r.status_code == 200
+        cl = int(r.headers.get("content-length") or 0)
+        assert 0 < cl <= 5_242_880, f"landhaus.mp4 size {cl} > 5MB"
+        assert "video/mp4" in r.headers.get("content-type", ""), r.headers.get("content-type")
+
+    def test_landhaus_webm(self, s):
+        r = s.get(f"{BASE_URL}/media/landhaus.webm", timeout=60, stream=True)
+        assert r.status_code == 200
+        cl = int(r.headers.get("content-length") or 0)
+        assert 0 < cl <= 6_291_456, f"landhaus.webm size {cl} > 6MB"
+
+    def test_hero_poster_3200_head(self, s):
+        r = s.head(f"{BASE_URL}/media/hero-poster-3200.webp", timeout=30, allow_redirects=True)
+        assert r.status_code == 200
+        assert "image/webp" in r.headers.get("content-type", "")
+
+    def test_perf_sizes(self, s):
+        """Report LCP-relevant asset sizes."""
+        for path in ("/media/hero-poster-800.avif", "/media/hero-poster-1600.webp"):
+            r = s.head(f"{BASE_URL}{path}", timeout=30, allow_redirects=True)
+            assert r.status_code == 200
+            cl = int(r.headers.get("content-length") or 0)
+            print(f"PERF {path} = {cl} bytes")
+            assert cl > 0
+
     @pytest.mark.parametrize("path", [
         "/media/hero.png",
         "/media/hero-2400.avif",
@@ -107,6 +122,9 @@ class TestListings:
         land = next((x for x in data if "Landhaus" in (x.get("title") or "")), None)
         assert land is not None, "Landhaus listing not found"
         assert land.get("image_url") == "/media/landhaus-800.webp", f"got {land.get('image_url')}"
+        assert land.get("video_url") == "/media/landhaus.mp4", f"got video_url={land.get('video_url')}"
+        assert land.get("highlight") is True, f"got highlight={land.get('highlight')}"
+        assert (land.get("title") or "").startswith("Totalsanierung historisches Landhaus"), f"title={land.get('title')}"
 
         lager = next((x for x in data if "Lagerraum" in (x.get("title") or "") or "Naturkeller" in (x.get("title") or "")), None)
         assert lager is not None, "Lagerraum listing not found"
