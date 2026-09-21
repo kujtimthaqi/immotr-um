@@ -73,5 +73,31 @@ Design: High-End PropTech (Niveau VistaView / cinematic). Navy #0A1428 + Champag
 - Hero-Poster srcset erweitert um 2400w und 3200w (AVIF + WebP).
 - **Crest-Komponente vorbereitet** (`/app/frontend/src/components/Crest.jsx`): lädt `/brand/wappen.png` nur wenn Datei existiert UND Content-Type mit `image/` beginnt (SPA-Catch-All-safe). Positioniert in Header (32-36 px, mit Fallback-Haus-Icon wenn Crest fehlt), Hero (44 px, Champagne-Glow), Trust (84-120 px + "Immo Traeum AG" Siegeltext), Footer (56 px @ 60 % Deckkraft). Aktuell alle unsichtbar — sobald der Kunde `wappen.png` liefert, erscheinen sie automatisch. Favicon/Apple-Icon werden ebenfalls erst getauscht, wenn die Datei da ist.
 
+## Update 4 (Feb 2026 — Mobile Media Hardening)
+- **AVIF MIME-Fix (final)**: `craco.config.js` — `media-mime-fix` Middleware ist jetzt der **letzte** DevServer-Wrapper (nach visual-edits + emergent overlay), so kann keine spätere Neu-Assignment die MIME-Overrides verwerfen. `/media/*.avif` liefert korrekt `image/avif`, `/media/*.mp4` → `video/mp4`, `/media/*.webm` → `video/webm`, `/media/*.webp` → `image/webp`. Zusätzlich `Cache-Control: public, max-age=31536000, immutable` + `Cross-Origin-Resource-Policy: cross-origin` (in Preview überschreibt der Emergent-Proxy Cache-Control auf no-store — erwartet, in Prod korrekt).
+- **Mobile Video Autoplay hardened**:
+  - MP4 `<source>` steht **vor** WebM in Hero/ReferenceFeature/ListingPicture (iOS Safari kann kein WebM — pickt so deterministisch mp4-mobile).
+  - `useAutoPlayVideo` unterstützt `containerRef` — IntersectionObserver beobachtet den Parent-Container statt `<video>` (zuverlässigere Trigger auf Mobile).
+  - `isMobile` in `Hero.jsx`, `Objekte.jsx` (Objekte + ListingPicture): `useState(() => typeof window !== 'undefined' && window.innerWidth < 768)` — lazy-Init, damit der **erste** Render bereits die mobile Variante emittiert (kein desktop→mobile-Swap zur Laufzeit).
+- **DigitalTwin canvas scroll-friendly**: `gl.domElement.style.touchAction = mobile ? 'pan-y' : 'none'` direkt in `onCreated` — Wrapper-Div-Style von R3F wird sonst nicht auf `<canvas>` selbst gesetzt. Vertikaler Seiten-Scroll funktioniert nun über dem Canvas.
+
+## Verified (testing_agent iteration_5 + iteration_6)
+- iPhone 390×844 iOS-Safari-UA + Android 412×915 Chrome-UA:
+  - Hero-Video spielt sofort (autoplay, muted, playsInline), currentSrc enthält `-mobile.`, currentTime > 0.
+  - Referenzen-Tab → landhaus-mobile Video spielt nach Scroll (IntersectionObserver 60 %), currentTime > 0.
+  - Mietobjekte-Tab → dachwohnung-mobile Video in Listing-Card spielt nach Sicht in Viewport.
+  - `#objekte canvas`: `getComputedStyle(canvas).touchAction === 'pan-y'`, blockiert Scroll NICHT.
+  - Kein horizontaler Overflow (scrollWidth === innerWidth).
+  - Keine Console-Errors.
+  - FloatingChat öffnet, akzeptiert Eingabe, kein Layout-Bruch.
+- MIME-Header verifiziert via curl: `/media/hero-poster-1600.avif` → `image/avif`, `/media/dachwohnung-mobile.mp4` → `video/mp4`.
+- Anmerkung: Playwright's Chromium (OSS-Build ohne H.264) landet auf `-mobile.webm`; auf realem iOS Safari greift `-mobile.mp4` (Safari kann kein WebM). Real-Device-Verify empfohlen, aber nicht blockierend.
+
 ## Waiting on customer
-- Familienwappen als PNG/SVG (die alte Homepage hatte keins — nur einen Wortmarken-GIF, kein heraldischer Schild).
+- Familienwappen als PNG/SVG unter `/app/frontend/public/brand/wappen.png` — `<Crest/>` erscheint automatisch sobald die Datei liegt (Content-Type-Check).
+
+## Backlog (P1/P2, aktualisiert Feb 2026)
+- P1: Familienwappen ausrollen (wartet auf Asset).
+- P2: Higgsfield API Integration (Backend-Video-Generierung: Job-Queue + Webhooks + `media_jobs` Collection) — Machbarkeitsstudie liegt vor, Implementierung deferred.
+- P2: Real-iOS-Device-Verifikation des `<video>` codec-picks (Playwright-Chromium hat kein H.264).
+- P2: E-Mail-Weiterleitung Anfragen (Resend), OG-Image 1200×630, i18n DE/EN/IT, Admin-Bcrypt + Rate-Limit.
