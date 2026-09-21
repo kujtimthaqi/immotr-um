@@ -113,8 +113,8 @@ export default function Hero() {
             onCanPlay={() => setVideoReady(true)}
             className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-[900ms] ${videoReady ? "opacity-100" : "opacity-0"}`}
           >
-            <source src={videoSrcWebm} type="video/webm" />
             <source src={videoSrcMp4} type="video/mp4" />
+            <source src={videoSrcWebm} type="video/webm" />
           </video>
         )}
         {blocked && (

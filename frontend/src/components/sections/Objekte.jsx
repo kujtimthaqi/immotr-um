@@ -235,10 +235,10 @@ function ReferenceFeature({ listing, isMobile }) {
           data-testid="reference-video"
           className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${playing ? "opacity-100" : "opacity-0"}`}
         >
-          {isMobile && <source src={`${mobileBase}.webm`} type="video/webm" />}
           {isMobile && <source src={`${mobileBase}.mp4`} type="video/mp4" />}
-          {!isMobile && <source src={`${videoBase}.webm`} type="video/webm" />}
+          {isMobile && <source src={`${mobileBase}.webm`} type="video/webm" />}
           {!isMobile && <source src={`${videoBase}.mp4`} type="video/mp4" />}
+          {!isMobile && <source src={`${videoBase}.webm`} type="video/webm" />}
         </video>
       )}
       {blocked && (
@@ -529,10 +529,10 @@ function ListingPicture({ src, alt, videoSrc, hoverToPlay = false, autoInView = 
           preload={autoInView ? "metadata" : "none"}
           className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${(hover || playing) ? "opacity-100" : "opacity-0"}`}
         >
-          {isMobile && mobileWebm && <source src={mobileWebm} type="video/webm" />}
           {isMobile && mobileMp4 && <source src={mobileMp4} type="video/mp4" />}
-          {!isMobile && desktopWebm && <source src={desktopWebm} type="video/webm" />}
+          {isMobile && mobileWebm && <source src={mobileWebm} type="video/webm" />}
           {!isMobile && videoSrc && <source src={videoSrc} type="video/mp4" />}
+          {!isMobile && desktopWebm && <source src={desktopWebm} type="video/webm" />}
         </video>
       )}
     </div>

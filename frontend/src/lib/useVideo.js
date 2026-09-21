@@ -30,23 +30,25 @@ export function usePrefersSaveMotion() {
 
 /**
  * useAutoPlayVideo — auto-play/pause when in viewport, tap toggles, only one at a time.
- * Returns: { ref, playing, canPlay, blocked, toggle }
+ * Options:
+ *  - containerRef: observe this element for visibility instead of the video itself
+ *  - forceLoad: call video.load() before play() (needed when preload=none)
  */
-export function useAutoPlayVideo({ threshold = 0.6, enabled = true } = {}) {
+export function useAutoPlayVideo({ threshold = 0.6, enabled = true, containerRef = null, forceLoad = false } = {}) {
   const ref = useRef(null);
   const [playing, setPlaying] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const [inView, setInView] = useState(false);
 
   useEffect(() => {
-    if (!ref.current) return;
-    const el = ref.current;
+    const target = (containerRef && containerRef.current) || ref.current;
+    if (!target) return;
     const obs = new IntersectionObserver(entries => {
       entries.forEach(e => setInView(e.intersectionRatio >= threshold));
-    }, { threshold: [0, threshold, 1] });
-    obs.observe(el);
+    }, { threshold: [0, threshold * 0.5, threshold, 1] });
+    obs.observe(target);
     return () => obs.disconnect();
-  }, [threshold]);
+  }, [threshold, containerRef]);
 
   useEffect(() => {
     const v = ref.current;
@@ -66,6 +68,7 @@ export function useAutoPlayVideo({ threshold = 0.6, enabled = true } = {}) {
     const v = ref.current;
     if (!v || !enabled) return;
     if (inView) {
+      if (forceLoad) { try { v.load(); } catch (_) {} }
       const p = v.play();
       if (p && typeof p.catch === "function") {
         p.catch(() => setBlocked(true));
@@ -73,12 +76,13 @@ export function useAutoPlayVideo({ threshold = 0.6, enabled = true } = {}) {
     } else {
       try { v.pause(); } catch (_) {}
     }
-  }, [inView, enabled]);
+  }, [inView, enabled, forceLoad]);
 
   const toggle = () => {
     const v = ref.current;
     if (!v) return;
     if (v.paused) {
+      if (forceLoad) { try { v.load(); } catch (_) {} }
       const p = v.play();
       if (p && typeof p.catch === "function") p.catch(() => setBlocked(true));
       else setBlocked(false);

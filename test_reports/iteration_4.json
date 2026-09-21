@@ -1,0 +1,60 @@
+{
+  "summary": "Iteration_4 — mobile videos + 3D-Twin mobile + Bewertung validation + MIME types + safe-area. Backend: 81/81 pytest passed (61 existing regression + 20 new). New tests cover mobile video existence & size budgets (hero-mobile ≤1.2MB, landhaus-mobile ≤1MB, dachwohnung-mobile ≤600KB) for both .mp4 and .webm siblings, correct Content-Type (video/mp4, video/webm, image/webp), and Pydantic Field validation on POST /api/valuation (area=5→422, rooms=-1→422, year_built=1600→422, valid payload→200). Existing regression: GET /api/listings=7 (Landhaus title 'Totalsanierung historisches Landhaus…', video_url=/media/landhaus.mp4, highlight=true), chat SSE streams deltas+done, admin login (correct/wrong pw). Frontend Playwright (390x844 iPhone UA + 412x915 Pixel): Hero <video> autoplays on mobile (paused=false, currentTime≈5s after 4s), Referenzen tab reveals data-testid='reference-video' whose currentSrc=/media/landhaus-mobile.webm and autoplays (currentTime≈1.4s after entering viewport). Mietobjekte tab: Dachwohnung listing card <video> autoplays on scroll-into-view via IntersectionObserver (paused=false, currentTime≈0.96s). Horizontal overflow = 0 on BOTH 390 AND 412 viewports, both with and without FloatingChat open. FloatingChat toggles open/close via data-testid='chat-toggle'; panel max-height rendered ≈591px (dvh honoured), no overflow. Canvas mounted inside .lg\\:col-span-7. Reduced-motion emulation: Hero renders poster only, no <video> element (as spec). Bewertung val-submit correctly disabled initially. LCP measured=6048ms (above 2.5s target — see perf_note). No console pageerrors observed.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/listings", "issue": "Body validation still runs before X-Admin-Password header check (returns 422 without header) — carried from previous iterations, non-blocking."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Dachwohnung ListingCard mobile source selection",
+        "issue": "Race between initial render (isMobile=false → desktop <source>) and post-mount useEffect flipping isMobile=true. On page load at 390px, the <video> element sometimes commits with currentSrc=/media/dachwohnung.webm (desktop) instead of dachwohnung-mobile.webm. Observed in one of two runs. Fix: initialise isMobile with `typeof window !== 'undefined' && window.innerWidth < 768` (SSR-safe) so the very first render already emits mobile <source> tags; or call v.load() after the isMobile flip inside a useEffect.",
+        "affected_selectors": ["video[src*='dachwohnung']"]
+      }
+    ],
+    "design_issues": [
+      {
+        "screen": "DigitalTwin canvas (mobile)",
+        "issues": ["getComputedStyle(canvas).touchAction returned 'auto' instead of the claimed 'pan-y'. Vertical page scroll still works, but the explicit pan-y hint is not being applied. Minor CSS tweak: add `touch-action:pan-y !important` to the canvas element (Objekte.jsx or DigitalTwin.jsx) if the exact pan-y behaviour is required."]
+      },
+      {
+        "screen": "Hero reduced-motion fallback",
+        "issues": ["When prefers-reduced-motion: reduce is emulated the poster renders but the promised data-testid='hero-play' button is NOT in the DOM. Spec says 'poster + play button'. Minor: either render the play button in the reduced-motion branch too, or drop the button from the spec."]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/test_iteration4.py",
+    "/app/test_reports/pytest/pytest_results.xml",
+    "/app/test_reports/pytest/iteration4.xml"
+  ],
+  "action_items": [
+    "(Optional, perf) LCP on mobile ≈6.05s — well above the 2.5s Web Vitals 'Good' threshold. Investigate: preload hero-poster-800.webp with <link rel='preload' as='image' fetchpriority='high'>, ensure hero <img> has fetchpriority='high' + explicit width/height to avoid CLS, defer non-critical CSS/JS. Note: Playwright's headless Chromium may inflate LCP vs real device — treat as directional.",
+    "(Minor) Fix Dachwohnung mobile-source race: initialise isMobile synchronously (SSR-safe) OR call video.load() on isMobile change so the browser re-picks the correct <source> for mobile viewports.",
+    "(Minor) Add explicit `touch-action:pan-y` inline style/CSS to the DigitalTwin <canvas> (currently computed as 'auto').",
+    "(Minor) In reduced-motion Hero path, also render data-testid='hero-play' (or drop it from the spec).",
+    "(Optional, carried) Reorder POST /api/listings to check X-Admin-Password before Pydantic validation."
+  ],
+  "critical_code_review_comments": [
+    "Objekte.jsx ListingPicture: isMobile state initial=false + useEffect-flip pattern causes a one-frame desktop <source> mount that the <video> element caches. Prefer lazy init: `useState(() => typeof window !== 'undefined' && window.innerWidth < 768)`.",
+    "ValuationInput now correctly uses Pydantic Field(ge=…, le=…) — 422 responses observed for area<10, negative rooms, year<1700.",
+    "useVideo.js single-video coordinator works end-to-end: reference-video and dachwohnung listing video both autoplay on IntersectionObserver threshold≥0.6.",
+    "index.css #root{overflow-x:hidden} + body max-width:100vw effectively eliminates horizontal overflow on 390 AND 412 viewports (measured =0).",
+    "FloatingChat safe-area + 70dvh max-height honoured (panel maxHeight=590.8px on 844px viewport = ~70%)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration4.py (new — 20 tests for mobile media size/ctype + valuation Pydantic validation)"
+  ],
+  "success_rate": {"backend": "100% (81/81)", "frontend": "≈95% of tested flows (2 minor cosmetic issues)"},
+  "test_credentials": "Admin password 8dl0ex4DCHwjk9juezvxmt4m from /app/memory/test_credentials.md.",
+  "seed_data_creation": "1 TEST_ inquiry via POST /api/inquiries during pytest (non-destructive, carried).",
+  "perf_note": "LCP on mobile (390x844, headless Chromium) = 6048 ms. Target <2500 ms. Report actual value; likely inflated by headless env but still worth investigating (hero-poster preload + hero <img> fetchpriority='high' + width/height attrs). Backend media served with correct Content-Type; hero-mobile.mp4 ≤1.2MB, landhaus-mobile.mp4 ≤1MB, dachwohnung-mobile.mp4 ≤600KB — all within budget.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "New backend test file at /app/backend/tests/test_iteration4.py (parametrised mobile-media Content-Type + size + valuation validation). Both test files should stay green. Known race: ListingPicture initial-render commits desktop sources on mobile viewport if isMobile isn't lazily initialised — retest after fix. Reduced-motion Hero currently renders poster only (no <video>, no hero-play button). Playwright headless Chromium sends its own UA regardless of override; DOM-observable checks are authoritative. React pinned 18.3.1.",
+  "rca of the issue": "Dachwohnung mobile-source race: ListingPicture uses `useState(false)` for isMobile + a mount-time useEffect to setIsMobile(true) on width<768. First render therefore emits only desktop <source> tags; the <video> element resolves currentSrc synchronously from those. On the subsequent React update the mobile <source> tags mount, but HTMLMediaElement does NOT automatically call load() when children change, so currentSrc stays on the desktop file. Repro: cold-load /  at 390px and inspect video[src*='dachwohnung'].currentSrc — half the time you see /media/dachwohnung.webm instead of /media/dachwohnung-mobile.webm. Mitigation: (a) lazy-init state `useState(() => typeof window !== 'undefined' && window.innerWidth < 768)`, or (b) `useEffect(() => { videoEl.load(); }, [isMobile])`."
+}
