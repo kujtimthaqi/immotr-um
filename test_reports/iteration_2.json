@@ -1,0 +1,41 @@
+{
+  "summary": "Iteration_2 regression testing of the Higgsfield Pro media/asset swap-out. Backend: 41/41 pytest tests passed (all new assets 200, hero.mp4=1.78MB<8MB, dachwohnung.mp4=680KB<3MB, hero.webm & dachwohnung.webm served correctly, all old hero paths /media/hero.png,/media/hero-2400.*,/media/hero-800.webp,/media/hero-1600.webp no longer served as images, listings GET returns 7 with Dachwohnung image_url=/media/dachwohnung-800.webp + video_url=/media/dachwohnung.mp4, Lagerraum image_url=/media/lagerraum-800.webp, Landhaus image_url=/media/landhaus-800.webp, valuation LLM produces German commentary with min<=expected<=max and no '15 Jahre' claim, inquiries persist, admin login rejects wrong / accepts correct password, admin-only endpoints require X-Admin-Password, chat SSE streams German deltas ending in done). Frontend: all 8 sections render, no runtime error overlay; Hero <picture> has AVIF + WebP <source> covering 800/1600 (fixed vs iteration_1 where AVIF only had 2400), img[fetchpriority=high][decoding=async] present, desktop renders <video autoplay muted loop playsinline> with 2 <source> (webm THEN mp4); mobile viewport (390x844) and prefers-reduced-motion=reduce both correctly OMIT the hero <video>; Dachwohnung listing card has img (/media/dachwohnung-800.webp) and sibling <video> with webm+mp4 sources for hover crossfade; Lagerraum card now shows /media/lagerraum-800.webp; #relocation section renders 2 <picture> parallax backgrounds (relocation-1600.webp + erbe-1600.webp); #beteiligungen renders <img> for /media/invest-1600.webp; Bewertung wizard end-to-end produces val-result-number + 'Fachlicher Kommentar' block; Kontakt form submits successfully; Admin panel with correct password lists all 7 objects.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/listings (write)", "issue": "Body validation still runs before admin-password check (returns 422 without header instead of 401). Carried over from iteration_1, not a security issue."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Bewertung wizard", "issues": ["When user clicks val-next twice without changing default inputs and submits, the valuation LLM can return a negative expected value (observed: CHF -9'656). Defaults should either be pre-populated with sensible non-zero values or the wizard should require key fields (area, rooms) before val-submit is enabled. Cosmetic only when user provides real inputs — test_valuation with realistic payload returns a valid positive CHF figure."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "(Optional) Prevent the Bewertung wizard from allowing val-submit with empty/zero area & rooms — either disable the button or set sensible defaults so the LLM cannot produce negative valuations.",
+    "(Optional, carried) Reorder POST /api/listings to check X-Admin-Password header before Pydantic validation so unauthorised writes return 401 instead of 422."
+  ],
+  "critical_code_review_comments": [
+    "Hero component correctly gates <video> behind desktop viewport + prefers-reduced-motion=no-preference — good perf/UX practice.",
+    "AVIF <source> is now complete for 800/1600 widths (regression from iteration_1's design_issue).",
+    "Listing.video_url field is populated only for Dachwohnung; hover video component correctly renders <video> only when the field is set.",
+    "Old media files (hero.png, hero-2400.*, hero-{800,1600}.webp) are physically removed from /app/frontend/public/media/; SPA catch-all now returns text/html for those paths which is acceptable."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py (updated media asset list to new Higgsfield Pro set; added hero.mp4/webm size+ctype checks, dachwohnung.mp4/webm checks, lagerraum image_url + dachwohnung.video_url assertions)"
+  ],
+  "success_rate": {"backend": "100% (41/41)", "frontend": "100% of tested flows"},
+  "test_credentials": "Admin password: 8dl0ex4DCHwjk9juezvxmt4m (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "One TEST_ inquiry via /api/inquiries, one TEST_Playwright2 inquiry via Kontakt UI. Non-destructive.",
+  "perf_note": "Lighthouse not run in this env. LCP-candidate hero-poster-800.avif is 43'284 bytes (~43 KB) — well within budget; hero.webm=1'274'176 bytes (1.22 MB), hero.mp4=1'778'478 bytes (1.7 MB). With <img fetchpriority=high> on a 43 KB AVIF and video gated to desktop+no-reduced-motion, mobile LCP should comfortably be < 2.5 s over 4G.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend test file at /app/backend/tests/backend_test.py now covers the new Higgsfield Pro asset set (hero-poster-*, dachwohnung.mp4/webm, hero.mp4/webm, invest, relocation, erbe, lagerraum). Video-size limits enforced: hero.mp4 <= 8MB, dachwohnung.mp4 <= 3MB. Hero <video> DOM-visible on desktop (>=768px, no prefers-reduced-motion) with webm-then-mp4 <source> order. Do NOT upgrade React (pinned 18.3.1). Wizard val-submit will accept default/empty inputs and can produce a negative CHF via the LLM — not a blocker but worth guarding on the UI.",
+  "rca of the issue": "N/A — no bugs to root-cause. Only one cosmetic wizard-default observation logged as design_issue."
+}

@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Link, useLocation } from "react-router-dom";
 import { Sun, Moon } from "lucide-react";
 import { useTheme } from "@/lib/useTheme";
+import Crest, { useCrestExists } from "@/components/Crest";
 
 const NAV = [
   { id: "leistungen", label: "Leistungen" },
@@ -17,6 +18,7 @@ export default function Header() {
   const [scrolled, setScrolled] = useState(false);
   const { theme, toggle } = useTheme();
   const loc = useLocation();
+  const hasCrest = useCrestExists();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -52,10 +54,13 @@ export default function Header() {
     >
       <div className="max-w-[1400px] mx-auto px-6 md:px-10 h-16 md:h-20 flex items-center justify-between">
         <Link to="/" data-testid="brand-link" className="group flex items-center gap-3">
-          <svg width="28" height="28" viewBox="0 0 28 28" className="text-gold">
-            <path d="M4 20 L14 6 L24 20 Z" fill="none" stroke="currentColor" strokeWidth="1.2"/>
-            <circle cx="14" cy="14" r="1.6" fill="currentColor"/>
-          </svg>
+          <Crest variant="header" />
+          {!hasCrest && (
+            <svg width="28" height="28" viewBox="0 0 28 28" className="text-gold">
+              <path d="M4 20 L14 6 L24 20 Z" fill="none" stroke="currentColor" strokeWidth="1.2"/>
+              <circle cx="14" cy="14" r="1.6" fill="currentColor"/>
+            </svg>
+          )}
           <div className="leading-tight">
             <div className="font-serif text-[17px] md:text-[18px] font-light tracking-tight text-white dark:text-white">
               Immo Traeum <span className="text-gold">AG</span>

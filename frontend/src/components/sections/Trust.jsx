@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { SectionHeader } from "@/components/sections/Leistungen";
 import { ShieldCheck, Compass, Handshake } from "lucide-react";
+import Crest, { useCrestExists } from "@/components/Crest";
 
 const VALUES = [
   { icon: ShieldCheck, title: "Diskretion", body: "Was wir wissen, bleibt bei uns. Sensible Themen — sensibel behandelt." },
@@ -16,10 +17,23 @@ const TIMELINE = [
 ];
 
 export default function Trust() {
+  const hasCrest = useCrestExists();
   return (
     <section id="trust" data-testid="trust-section" className="relative py-24 md:py-40 bg-navy overflow-hidden">
       <div className="max-w-[1400px] mx-auto px-6 md:px-10">
         <SectionHeader index="06" total="08" eyebrow="Vertrauen" title="Zwei Verbände. Drei Werte. Ein Weg."/>
+
+        {hasCrest && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.9 }}
+            className="mt-14 flex flex-col items-center text-center gap-4"
+            data-testid="trust-crest-seal"
+          >
+            <Crest variant="trust" />
+            <div className="font-serif text-xl md:text-2xl font-light tracking-tight text-white">Immo Traeum AG</div>
+            <div className="w-16 h-px bg-gold/50"/>
+          </motion.div>
+        )}
 
         {/* Memberships */}
         <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-6">

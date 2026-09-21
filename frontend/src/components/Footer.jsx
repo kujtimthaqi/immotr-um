@@ -1,10 +1,12 @@
 import { Link } from "react-router-dom";
+import Crest from "@/components/Crest";
 
 export default function Footer() {
   return (
     <footer data-testid="site-footer" className="relative border-t border-[color:var(--gold)]/20 bg-navy">
       <div className="max-w-[1400px] mx-auto px-6 md:px-10 py-16 md:py-20 grid md:grid-cols-12 gap-10">
         <div className="md:col-span-5">
+          <Crest variant="footer" className="mb-6" />
           <div className="font-serif text-3xl font-light tracking-tight text-white">Immo Traeum <span className="text-gold">AG</span></div>
           <p className="mt-4 text-sm text-white/60 max-w-md leading-relaxed">
             Traumhaftes Immobilienmanagement zwischen Bodensee und Alpen. Diskret, präzise und persönlich.

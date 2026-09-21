@@ -464,8 +464,10 @@ async def seed_data():
                 year=2013,
                 status="reference",
                 image_url="/media/landhaus-800.webp",
+                video_url="/media/landhaus.mp4",
                 description="Behutsame Totalsanierung eines Kulturguts aus dem Jahr 1726 unter Wahrung der originalen Bausubstanz.",
                 order=10,
+                highlight=True,
             ),
             Listing(
                 kind="reference",

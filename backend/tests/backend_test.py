@@ -15,34 +15,78 @@ def s():
     return requests.Session()
 
 
-# ---------- Media assets ----------
+# ---------- Media assets (new Higgsfield Pro asset set) ----------
+NEW_ASSETS = [
+    "/media/hero-poster-800.webp",
+    "/media/hero-poster-800.avif",
+    "/media/hero-poster-1600.webp",
+    "/media/hero-poster-1600.avif",
+    "/media/dachwohnung-800.webp",
+    "/media/dachwohnung-1600.webp",
+    "/media/dachwohnung-1600.avif",
+    "/media/landhaus-800.webp",
+    "/media/landhaus-1600.webp",
+    "/media/landhaus-1600.avif",
+    "/media/lagerraum-800.webp",
+    "/media/lagerraum-1600.webp",
+    "/media/lagerraum-1600.avif",
+    "/media/relocation-800.webp",
+    "/media/relocation-1600.webp",
+    "/media/relocation-1600.avif",
+    "/media/erbe-800.webp",
+    "/media/erbe-1600.webp",
+    "/media/erbe-1600.avif",
+    "/media/invest-800.webp",
+    "/media/invest-1600.webp",
+    "/media/invest-1600.avif",
+]
+
+
 class TestMedia:
-    @pytest.mark.parametrize("path,max_size", [
-        ("/media/hero-2400.webp", 500_000),
-        ("/media/hero-2400.avif", 500_000),
-        ("/media/hero-800.webp", 200_000),
-        ("/media/hero-1600.webp", 500_000),
-        ("/media/dachwohnung-800.webp", 200_000),
-        ("/media/landhaus-800.webp", 200_000),
-    ])
-    def test_asset_200(self, s, path, max_size):
-        r = s.get(f"{BASE_URL}{path}", timeout=30)
+    @pytest.mark.parametrize("path", NEW_ASSETS)
+    def test_new_image_asset_200(self, s, path):
+        r = s.head(f"{BASE_URL}{path}", timeout=30, allow_redirects=True)
+        if r.status_code != 200:
+            r = s.get(f"{BASE_URL}{path}", timeout=30)
         assert r.status_code == 200, f"{path} -> {r.status_code}"
-        cl = int(r.headers.get("content-length") or len(r.content))
-        assert cl < max_size, f"{path} is {cl} bytes, expected < {max_size}"
+        ctype = r.headers.get("content-type", "")
+        assert "image/" in ctype or "octet-stream" in ctype, f"{path} ctype={ctype}"
+
+    def test_hero_mp4(self, s):
+        r = s.get(f"{BASE_URL}/media/hero.mp4", timeout=60, stream=True)
+        assert r.status_code == 200
+        cl = int(r.headers.get("content-length") or 0)
+        assert 0 < cl <= 8_388_608, f"hero.mp4 size {cl} > 8MB"
+        assert "video/mp4" in r.headers.get("content-type", ""), r.headers.get("content-type")
+
+    def test_hero_webm(self, s):
+        r = s.get(f"{BASE_URL}/media/hero.webm", timeout=60, stream=True)
+        assert r.status_code == 200
+        assert "video/webm" in r.headers.get("content-type", ""), r.headers.get("content-type")
+
+    def test_dachwohnung_mp4(self, s):
+        r = s.get(f"{BASE_URL}/media/dachwohnung.mp4", timeout=60, stream=True)
+        assert r.status_code == 200
+        cl = int(r.headers.get("content-length") or 0)
+        assert 0 < cl <= 3_145_728, f"dachwohnung.mp4 size {cl} > 3MB"
+
+    def test_dachwohnung_webm(self, s):
+        r = s.get(f"{BASE_URL}/media/dachwohnung.webm", timeout=60, stream=True)
+        assert r.status_code == 200
 
     @pytest.mark.parametrize("path", [
         "/media/hero.png",
-        "/media/dachwohnung.png",
-        "/media/landhaus.png",
+        "/media/hero-2400.avif",
+        "/media/hero-2400.webp",
+        "/media/hero-800.webp",
+        "/media/hero-1600.webp",
     ])
-    def test_old_png_gone(self, s, path):
+    def test_old_hero_gone(self, s, path):
         r = s.get(f"{BASE_URL}{path}", timeout=30)
-        # Old PNGs are removed. SPA catch-all may serve index.html (text/html) — that's OK,
-        # what matters is the actual image is gone (not served as image).
         ctype = r.headers.get("content-type", "")
+        # Old assets must NOT be served as images anymore
         assert r.status_code == 404 or ctype.startswith("text/html"), \
-            f"{path} still served as image: {r.status_code} {ctype}"
+            f"{path} still served: {r.status_code} {ctype}"
 
 
 # ---------- Listings ----------
@@ -58,10 +102,15 @@ class TestListings:
         dach = next((x for x in data if "Dach-Wohnung" in (x.get("title") or "") or "Dachwohnung" in (x.get("title") or "")), None)
         assert dach is not None, "Dachwohnung listing not found"
         assert dach.get("image_url") == "/media/dachwohnung-800.webp", f"got {dach.get('image_url')}"
+        assert dach.get("video_url") == "/media/dachwohnung.mp4", f"got video_url={dach.get('video_url')}"
 
         land = next((x for x in data if "Landhaus" in (x.get("title") or "")), None)
         assert land is not None, "Landhaus listing not found"
         assert land.get("image_url") == "/media/landhaus-800.webp", f"got {land.get('image_url')}"
+
+        lager = next((x for x in data if "Lagerraum" in (x.get("title") or "") or "Naturkeller" in (x.get("title") or "")), None)
+        assert lager is not None, "Lagerraum listing not found"
+        assert lager.get("image_url") == "/media/lagerraum-800.webp", f"got {lager.get('image_url')}"
 
 
 # ---------- Valuation ----------

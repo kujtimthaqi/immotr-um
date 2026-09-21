@@ -61,3 +61,17 @@ Design: High-End PropTech (Niveau VistaView / cinematic). Navy #0A1428 + Champag
 - Relocation.jsx: split cards get parallax background images with navy bottom-gradient + gold hairlines in `mix-blend-screen`.
 - Beteiligungen.jsx: `invest-1600` visual (16:7) with gold-glow border above the stats grid.
 - Backend Listing model gained `video_url` field. Seed: Dachwohnung `video_url=/media/dachwohnung.mp4`; Lagerraum `image_url=/media/lagerraum-800.webp`.
+
+## Update 3 (Feb 2026 — 2k/4k asset upscale + landhaus video + Crest scaffolding)
+- All PNGs replaced with higher-res upscales. WebP+AVIF now at **800/1600/2400** widths; hero-poster additionally at **3200**.
+- New `landhaus.mp4` (1.6 MB) + `landhaus.webm` (1.6 MB), 10 s Drohnen-Orbit, 1280 wide, faststart, no audio.
+- Backend Listing seed: Landhaus Arezen now has `video_url=/media/landhaus.mp4` + `highlight=true`.
+- Objekte:
+  - Neuer **Referenz-Feature-Karte** oberhalb des Grids: 4:3, Poster+Video (autoplay muted loop), lazy per IntersectionObserver, mobile/reduced-motion nur Poster.
+  - Im 3D-Viewer: wenn Arezen in der rechten Liste gehovered wird (`hoverIdx = -1`, ausserhalb Rorschach), erscheint statt Kamerafahrt ein Glass-Overlay mit dem Landhaus-Video.
+  - `ListingPicture` srcset erweitert um 2400w.
+- Hero-Poster srcset erweitert um 2400w und 3200w (AVIF + WebP).
+- **Crest-Komponente vorbereitet** (`/app/frontend/src/components/Crest.jsx`): lädt `/brand/wappen.png` nur wenn Datei existiert UND Content-Type mit `image/` beginnt (SPA-Catch-All-safe). Positioniert in Header (32-36 px, mit Fallback-Haus-Icon wenn Crest fehlt), Hero (44 px, Champagne-Glow), Trust (84-120 px + "Immo Traeum AG" Siegeltext), Footer (56 px @ 60 % Deckkraft). Aktuell alle unsichtbar — sobald der Kunde `wappen.png` liefert, erscheinen sie automatisch. Favicon/Apple-Icon werden ebenfalls erst getauscht, wenn die Datei da ist.
+
+## Waiting on customer
+- Familienwappen als PNG/SVG (die alte Homepage hatte keins — nur einen Wortmarken-GIF, kein heraldischer Schild).

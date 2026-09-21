@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
+import Crest from "@/components/Crest";
 
 export default function Hero() {
   const containerRef = useRef(null);
@@ -62,12 +63,12 @@ export default function Hero() {
         <picture>
           <source
             type="image/avif"
-            srcSet="/media/hero-poster-800.avif 800w, /media/hero-poster-1600.avif 1600w"
+            srcSet="/media/hero-poster-800.avif 800w, /media/hero-poster-1600.avif 1600w, /media/hero-poster-2400.avif 2400w, /media/hero-poster-3200.avif 3200w"
             sizes="100vw"
           />
           <source
             type="image/webp"
-            srcSet="/media/hero-poster-800.webp 800w, /media/hero-poster-1600.webp 1600w"
+            srcSet="/media/hero-poster-800.webp 800w, /media/hero-poster-1600.webp 1600w, /media/hero-poster-2400.webp 2400w, /media/hero-poster-3200.webp 3200w"
             sizes="100vw"
           />
           <img
@@ -167,6 +168,7 @@ export default function Hero() {
           transition={{ delay: 0.4, duration: 0.9, ease: "easeOut" }}
           className="max-w-3xl"
         >
+          <Crest variant="hero" className="mb-4" />
           <div className="flex items-center gap-3 mb-6">
             <span className="w-8 h-px bg-gold"/>
             <span className="text-[11px] uppercase tracking-[0.32em] text-gold">Real Estate · Bodensee &amp; Alpen</span>
