@@ -138,3 +138,38 @@ Real-Playwright-Mobile-Emulation (iPhone/Android UA + isMobile + hasTouch) auf 4
 | 412×915 | light | none | no | no |
 
 12/12 Spec-Kriterien PASS. Alle 6 Original-Bugs behoben.
+
+## Update 6 (Feb 2026 — Familienwappen Jehli integriert)
+### Assets
+- **Original gesichert**: `/app/frontend/public/brand/wappen-original.jpg` (1140×218 px, 16.4 kB, unverändert).
+- **Freistellung** via Python-Flood-Fill vom Rand aus (`/app/scripts/process_wappen.py`, dann als `/tmp/process_wappen.py` neu erzeugt beim Bedarf): weisser Hintergrund entfernt, innere Details (Helm, Helmdecke) via 4-Connectivity intakt, 1 px Gauss-Kanten, 4 % Rand.
+- **Ergebnisse**:
+  - `/brand/wappen.png` — 217×212 transparent (72 kB)
+  - `/brand/wappen@2x.png` — 434×424 Lanczos (228 kB)
+  - `/brand/wappen@3x.png` — 651×636 Lanczos (426 kB)
+- **Favicons + Apple + Manifest** (`/app/scripts/make_icons.py`): 16/32/48/192/512 PNG, 180 Apple-Touch (Navy #0A1428 Background), favicon.ico Bundle. Für alle: nur Schild + Helm (Schriftzug „Jehli" weggeschnitten, unlesbar bei ≤ 48 px).
+
+### Code
+- **Crest.jsx**: srcSet 1x/2x/3x, sizes `header: h-8 md:h-[38px]` · `hero: h-9 md:h-11` · `trust: h-[110px]` · `footer: h-14 opacity-60`. Klasse `.crest-glow` für Nicht-Hero-Varianten. Hero-Variante trägt permanent Champagne-Glow.
+- **index.css**: `.crest-glow { filter: drop-shadow(0 0 1px rgba(247,244,238,0.6)); }` und `body[data-theme="light"] .crest-glow { filter: none; }` — Dark-Mode-Lesbarkeit auf Navy ohne Light-Mode-Artefakte.
+- **index.html**: `<link rel="icon">` für favicon.ico + 16/32/48, `<link rel="apple-touch-icon" sizes="180x180">`, `<link rel="manifest">`.
+- **manifest.json**: name „Immo Traeum AG", short_name „Immo Traeum", lang de-CH, theme-color #0A1428, icons 192/512/180 (maskable).
+
+### Verified (testing_agent iteration_8)
+Real Playwright, 4 Viewports × 2 Themes + DPR=2 Retina:
+
+| Viewport | Theme | Header | Hero | Trust | Footer | Broken | Overlap | Favicon |
+|---|---|---|---|---|---|---|---|---|
+| 360×640 | dark | 32 | 36 | 110 | 56 | 0 | 0 | ✅ |
+| 360×640 | light | 32 | 36 | 110 | 56 | 0 | 0 | ✅ |
+| 390×844 | dark | 32 | 36 | 110 | 56 | 0 | 0 | ✅ |
+| 390×844 | light | 32 | 36 | 110 | 56 | 0 | 0 | ✅ |
+| 412×915 | dark | 32 | 36 | 110 | 56 | 0 | 0 | ✅ |
+| 412×915 | light | 32 | 36 | 110 | 56 | 0 | 0 | ✅ |
+| 1440 | dark | 38 | 44 | 110 | 56 | 0 | 0 | ✅ |
+| 1440 | light | 38 | 44 | 110 | 56 | 0 | 0 | ✅ |
+
+- Retina DPR=2: `currentSrc` löst auf `wappen@2x.png` auf für alle 4 Instanzen.
+- Dark-Filter: `drop-shadow(rgba(247,244,238,0.6) 0px 0px 1px)`. Light-Filter: `none`.
+- Hero-Champagne-Glow beide Modi: `drop-shadow(rgba(230,211,168,0.55) 0px 0px 18px)`.
+- Prod-Build `yarn build` → Compiled successfully.

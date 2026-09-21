@@ -1,0 +1,51 @@
+{
+  "summary": "Frontend-only visual/asset verification for Familienwappen Jehli crest integration. Tested 4 viewports (360/390/412/1440) x 2 themes (dark/light) + DPR=2 retina context + all favicon/manifest/brand asset endpoints. All 13 acceptance criteria pass.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "results_table": [
+    {"viewport":"mobile-360","theme":"dark","header_h":32,"hero_h":36,"trust_h":110,"footer_h":56,"broken":0,"overlap":0,"overflow_ok":true,"favicon_ok":true,"header_filter":"drop-shadow(rgba(247,244,238,0.6) 0 0 1px)","hero_filter":"drop-shadow(rgba(230,211,168,0.55) 0 0 18px)"},
+    {"viewport":"mobile-360","theme":"light","header_h":32,"hero_h":36,"trust_h":110,"footer_h":56,"broken":0,"overlap":0,"overflow_ok":true,"favicon_ok":true,"header_filter":"none","hero_filter":"drop-shadow champagne"},
+    {"viewport":"mobile-390","theme":"dark","header_h":32,"hero_h":36,"trust_h":110,"footer_h":56,"broken":0,"overlap":0,"overflow_ok":true,"favicon_ok":true},
+    {"viewport":"mobile-390","theme":"light","header_h":32,"hero_h":36,"trust_h":110,"footer_h":56,"broken":0,"overlap":0,"overflow_ok":true,"favicon_ok":true},
+    {"viewport":"mobile-412","theme":"dark","header_h":32,"hero_h":36,"trust_h":110,"footer_h":56,"broken":0,"overlap":0,"overflow_ok":true,"favicon_ok":true},
+    {"viewport":"mobile-412","theme":"light","header_h":32,"hero_h":36,"trust_h":110,"footer_h":56,"broken":0,"overlap":0,"overflow_ok":true,"favicon_ok":true},
+    {"viewport":"desktop-1440","theme":"dark","header_h":38,"hero_h":44,"trust_h":110,"footer_h":56,"broken":0,"overlap":0,"overflow_ok":true,"favicon_ok":true},
+    {"viewport":"desktop-1440","theme":"light","header_h":38,"hero_h":44,"trust_h":110,"footer_h":56,"broken":0,"overlap":0,"overflow_ok":true,"favicon_ok":true}
+  ],
+  "detailed_verification": {
+    "crest_exists": "All 4 instances (header, hero, trust, footer) have naturalWidth=217, naturalHeight=212, complete=true.",
+    "header_size": "32px mobile, 38px desktop — exact.",
+    "hero_size": "36px mobile, 44px desktop — exact. Visible above eyebrow, no overlap with headline.",
+    "trust_size": "110px, [data-testid=trust-crest-seal] present.",
+    "footer_size": "56px @ opacity 0.6 — exact.",
+    "no_fallback_svg": "Path 'M4 20 L14 6 L24 20 Z' not found in DOM.",
+    "srcSet": "All 4 have srcset='/brand/wappen.png 1x, /brand/wappen@2x.png 2x, /brand/wappen@3x.png 3x'.",
+    "retina_dpr2": "At device_scale_factor=2 (desktop 1440), currentSrc resolves to /brand/wappen@2x.png for all 4 crests — correct.",
+    "dark_mode_glow": "Non-hero crests filter = 'drop-shadow(rgba(247,244,238,0.6) 0px 0px 1px)' in dark theme.",
+    "light_mode_glow": "Non-hero crests filter = 'none' in light theme.",
+    "hero_champagne_glow": "Hero always has 'drop-shadow(rgba(230,211,168,0.55) 0px 0px 18px)' in both themes.",
+    "favicons": "/favicon.ico=200 image/x-icon; /favicon-32.png=200 image/png; /apple-touch-icon.png=200 image/png; /manifest.json=200 application/json; parsed name='Immo Traeum AG'.",
+    "manifest_icons": "/favicon-192.png, /favicon-512.png, /apple-touch-icon.png all 200 image/png.",
+    "brand_assets": "wappen.png, wappen@2x.png, wappen@3x.png all 200 image/png.",
+    "overlap_check": "All 8 viewport/theme combos: max overlap area = 0 for header, hero, trust, footer.",
+    "broken_images": "0 broken images across all viewports.",
+    "body_overflow": "scrollWidth === innerWidth on 360, 390, 412, 1440 — no horizontal overflow."
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Crest.jsx uses a module-level global crestState — fine for CSR, but note SSR would need reset. Non-blocking.",
+    "manifest.json uses relative /favicon-* paths — correct."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a", "frontend": "100%"},
+  "test_credentials": "none",
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Crest integration fully verified in iteration 8. All viewports & themes green. Retina @2x confirmed. Main agent can proceed."
+}
