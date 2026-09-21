@@ -124,10 +124,11 @@ function GridLines() {
   );
 }
 
-function Controls() {
+function Controls({ enabled = true }) {
   const { camera, gl } = useThree();
   const ref = useRef();
   useEffect(() => {
+    if (!enabled) return;
     const c = new ThreeOrbitControls(camera, gl.domElement);
     c.enablePan = false;
     c.enableDamping = true;
@@ -138,7 +139,7 @@ function Controls() {
     c.maxDistance = 26;
     ref.current = c;
     return () => c.dispose();
-  }, [camera, gl]);
+  }, [camera, gl, enabled]);
   useFrame(() => ref.current?.update());
   return null;
 }
@@ -160,8 +161,9 @@ function CameraRig({ target }) {
 }
 
 export default function DigitalTwin({ highlightIndex, listings = [], mobile = false }) {
-  const buildings = useBuildings(mobile ? 28 : 62);
-  const [dpr] = useState([1, 1.5]);
+  const buildings = useBuildings(mobile ? 22 : 62);
+  const [dpr] = useState(mobile ? [1, 1.5] : [1, 2]);
+  const [webglLost, setWebglLost] = useState(false);
 
   const highlightPositions = useMemo(() => {
     return listings.slice(0, 3).map((l, i) => buildings[i * 7 + 3]?.pos || [i * 3 - 3, 1.2, 2]);
@@ -171,13 +173,25 @@ export default function DigitalTwin({ highlightIndex, listings = [], mobile = fa
     ? highlightPositions[highlightIndex]
     : null;
 
+  if (webglLost) {
+    return (
+      <div className="w-full h-full bg-gradient-to-br from-[#0A1428] to-[#13233F] flex items-center justify-center text-gold-light text-sm">
+        3D nicht verfügbar — Vorschau als Bild.
+      </div>
+    );
+  }
+
   return (
     <Canvas
-      shadows
+      shadows={!mobile}
       dpr={dpr}
       camera={{ position: [0, 10, 16], fov: 40 }}
-      gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, outputColorSpace: THREE.SRGBColorSpace }}
-      onCreated={({ gl }) => { gl.setClearColor("#0A1428", 1); }}
+      gl={{ antialias: !mobile, powerPreference: mobile ? "low-power" : "high-performance", toneMapping: THREE.ACESFilmicToneMapping, outputColorSpace: THREE.SRGBColorSpace }}
+      onCreated={({ gl }) => {
+        gl.setClearColor("#0A1428", 1);
+        gl.domElement.addEventListener("webglcontextlost", (e) => { e.preventDefault(); setWebglLost(true); });
+      }}
+      style={{ touchAction: mobile ? "pan-y" : "none" }}
     >
       <fog attach="fog" args={["#0A1428", 12, 45]} />
       <ambientLight intensity={0.25} />
@@ -185,9 +199,9 @@ export default function DigitalTwin({ highlightIndex, listings = [], mobile = fa
         position={[10, 18, 10]}
         intensity={1.4}
         color="#f7e6c2"
-        castShadow
-        shadow-mapSize-width={1024}
-        shadow-mapSize-height={1024}
+        castShadow={!mobile}
+        shadow-mapSize-width={512}
+        shadow-mapSize-height={512}
       />
       <directionalLight position={[-8, 6, -5]} intensity={0.35} color="#4b6ea8" />
 
@@ -203,11 +217,11 @@ export default function DigitalTwin({ highlightIndex, listings = [], mobile = fa
         {highlightPositions.map((p, i) => p && <HighlightPolygon key={`h-${i}`} position={p} />)}
       </Suspense>
 
-      <Controls />
+      <Controls enabled={!mobile} />
       <CameraRig target={target} />
 
       <EffectComposer disableNormalPass>
-        <Bloom intensity={0.7} luminanceThreshold={0.55} luminanceSmoothing={0.2} mipmapBlur />
+        <Bloom intensity={mobile ? 0.35 : 0.7} luminanceThreshold={0.55} luminanceSmoothing={0.2} mipmapBlur />
       </EffectComposer>
     </Canvas>
   );

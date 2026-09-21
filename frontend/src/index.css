@@ -21,7 +21,12 @@ html, body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
+  width: 100%;
+  max-width: 100vw;
 }
+
+/* Prevent any absolutely-positioned overflow from breaking layout on mobile */
+#root { overflow-x: hidden; }
 
 body[data-theme="light"] {
   background: var(--off-white);

@@ -37,7 +37,13 @@ export default function Bewertung() {
 
   const canNext = () => {
     if (step === 0) return !!state.property_type;
-    if (step === 1) return state.zip && state.area > 0;
+    if (step === 1) {
+      const zipOk = /^\d{4,5}$/.test(String(state.zip || "").trim());
+      const areaOk = Number(state.area) >= 10;
+      const roomsOk = !state.rooms || Number(state.rooms) > 0;
+      const yearOk = !state.year_built || (Number(state.year_built) >= 1700 && Number(state.year_built) <= new Date().getFullYear());
+      return zipOk && areaOk && roomsOk && yearOk;
+    }
     return true;
   };
 
@@ -133,8 +139,8 @@ export default function Bewertung() {
               ) : (
                 <button
                   onClick={submit}
-                  disabled={loading}
-                  className="h-10 px-5 rounded-full btn-gold text-[12px] uppercase tracking-[0.14em] disabled:opacity-60"
+                  disabled={loading || !canNext()}
+                  className="h-10 px-5 rounded-full btn-gold text-[12px] uppercase tracking-[0.14em] disabled:opacity-40"
                   data-testid="val-submit"
                 >{loading ? "Berechne…" : "Bewertung anzeigen"}</button>
               )}

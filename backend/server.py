@@ -113,11 +113,11 @@ class ValuationInput(BaseModel):
     property_type: Literal["wohnung", "efh", "mfh", "gewerbe"]
     zip: str
     city: Optional[str] = None
-    area: float
-    rooms: Optional[float] = None
-    year_built: Optional[int] = None
-    condition: int = 3  # 1..5
-    location_quality: int = 3  # 1..5
+    area: float = Field(..., ge=10, le=10000)
+    rooms: Optional[float] = Field(default=None, ge=0.5, le=30)
+    year_built: Optional[int] = Field(default=None, ge=1700, le=2100)
+    condition: int = Field(default=3, ge=1, le=5)
+    location_quality: int = Field(default=3, ge=1, le=5)
     lake_view: bool = False
     garage: bool = False
     balcony: bool = False

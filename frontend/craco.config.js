@@ -138,6 +138,40 @@ let webpackConfig = {
 };
 
 webpackConfig.devServer = (devServerConfig) => {
+  // Fix MIME types for /media (AVIF served as octet-stream by default) + long cache
+  const originalSetupMiddlewaresMedia = devServerConfig.setupMiddlewares;
+  devServerConfig.setupMiddlewares = (middlewares, devServer) => {
+    if (originalSetupMiddlewaresMedia) {
+      middlewares = originalSetupMiddlewaresMedia(middlewares, devServer);
+    }
+    const MIME = {
+      ".avif": "image/avif",
+      ".webp": "image/webp",
+      ".mp4":  "video/mp4",
+      ".webm": "video/webm",
+    };
+    middlewares.unshift({
+      name: "media-mime-fix",
+      middleware: (req, res, next) => {
+        const url = (req.url || "").replace(/\?.*$/, "");
+        if (url.startsWith("/media/") || url.startsWith("/brand/")) {
+          const ext = (url.match(/\.[a-z0-9]+$/i) || [""])[0].toLowerCase();
+          if (MIME[ext]) {
+            const origWriteHead = res.writeHead.bind(res);
+            res.writeHead = (code, ...rest) => {
+              res.setHeader("Content-Type", MIME[ext]);
+              res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+              res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+              return origWriteHead(code, ...rest);
+            };
+          }
+        }
+        next();
+      },
+    });
+    return middlewares;
+  };
+
   // Add health check endpoints if enabled
   if (config.enableHealthCheck && setupHealthEndpoints && healthPluginInstance) {
     const originalSetupMiddlewares = devServerConfig.setupMiddlewares;

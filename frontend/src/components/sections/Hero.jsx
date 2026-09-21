@@ -1,13 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import Crest from "@/components/Crest";
+import { usePrefersSaveMotion } from "@/lib/useVideo";
+import { Play } from "lucide-react";
 
 export default function Hero() {
   const containerRef = useRef(null);
   const videoRef = useRef(null);
   const [mouse, setMouse] = useState({ x: 0, y: 0 });
   const [videoReady, setVideoReady] = useState(false);
-  const [useVideo, setUseVideo] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [blocked, setBlocked] = useState(false);
+  const reduced = usePrefersSaveMotion();
 
   const { scrollYProgress } = useScroll({ target: containerRef, offset: ["start start", "end start"] });
   const yImg = useTransform(scrollYProgress, [0, 1], [0, 80]);
@@ -15,37 +19,50 @@ export default function Hero() {
   const opacityContent = useTransform(scrollYProgress, [0, 0.6], [1, 0]);
 
   useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
     const onMove = (e) => {
       const w = window.innerWidth, h = window.innerHeight;
       setMouse({ x: (e.clientX - w / 2) / w, y: (e.clientY - h / 2) / h });
     };
     window.addEventListener("mousemove", onMove, { passive: true });
-    return () => window.removeEventListener("mousemove", onMove);
+    return () => { window.removeEventListener("resize", check); window.removeEventListener("mousemove", onMove); };
   }, []);
 
-  // Decide if we should use the video: >= md and no reduced motion and tab visible
+  // Auto play/pause on visibility
   useEffect(() => {
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const isDesktop = window.matchMedia("(min-width: 768px)").matches;
-    if (reduced || !isDesktop) return;
-    if (document.visibilityState !== "visible") return;
-    setUseVideo(true);
+    const v = videoRef.current;
+    if (!v || reduced) return;
     const onVis = () => {
-      if (document.visibilityState !== "visible") {
-        videoRef.current?.pause();
-      } else {
-        videoRef.current?.play().catch(() => {});
-      }
+      if (document.visibilityState !== "visible") v.pause();
+      else if (!blocked) v.play().catch(() => setBlocked(true));
     };
     document.addEventListener("visibilitychange", onVis);
-    return () => document.removeEventListener("visibilitychange", onVis);
-  }, []);
+    // Try to play once metadata is available
+    const tryPlay = () => {
+      const p = v.play();
+      if (p && typeof p.catch === "function") p.catch(() => setBlocked(true));
+    };
+    v.addEventListener("loadedmetadata", tryPlay, { once: true });
+    return () => { document.removeEventListener("visibilitychange", onVis); v.removeEventListener("loadedmetadata", tryPlay); };
+  }, [reduced, blocked]);
+
+  const manualPlay = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.play().then(() => setBlocked(false)).catch(() => {});
+  };
 
   const scrollTo = (id) => (e) => {
     e.preventDefault();
     const el = document.getElementById(id);
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   };
+
+  const useVideo = !reduced;
+  const videoSrcMp4 = isMobile ? "/media/hero-mobile.mp4" : "/media/hero.mp4";
+  const videoSrcWebm = isMobile ? "/media/hero-mobile.webm" : "/media/hero.webm";
 
   return (
     <section
@@ -83,19 +100,33 @@ export default function Hero() {
         {useVideo && (
           <video
             ref={videoRef}
-            src="/media/hero.mp4"
             poster="/media/hero-poster-1600.webp"
             autoPlay
             muted
             loop
             playsInline
-            preload="auto"
+            /* eslint-disable-next-line react/no-unknown-property */
+            webkit-playsinline="true"
+            disablePictureInPicture
+            preload="metadata"
+            onPlaying={() => setVideoReady(true)}
             onCanPlay={() => setVideoReady(true)}
             className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-[900ms] ${videoReady ? "opacity-100" : "opacity-0"}`}
           >
-            <source src="/media/hero.webm" type="video/webm" />
-            <source src="/media/hero.mp4" type="video/mp4" />
+            <source src={videoSrcWebm} type="video/webm" />
+            <source src={videoSrcMp4} type="video/mp4" />
           </video>
+        )}
+        {blocked && (
+          <button
+            onClick={manualPlay}
+            data-testid="hero-play"
+            aria-label="Video abspielen"
+            className="absolute inset-0 m-auto w-16 h-16 rounded-full btn-gold flex items-center justify-center z-20"
+            style={{ top: "auto", bottom: "22%" }}
+          >
+            <Play size={22} strokeWidth={1.5} className="text-navy translate-x-0.5"/>
+          </button>
         )}
       </motion.div>
 

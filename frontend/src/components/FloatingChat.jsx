@@ -85,8 +85,10 @@ export default function FloatingChat() {
         initial={{ scale: 0, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ delay: 1.2, duration: 0.6, type: "spring" }}
-        className="fixed z-[70] right-5 bottom-5 md:right-8 md:bottom-8 h-14 w-14 rounded-full flex items-center justify-center"
+        className="fixed z-[70] h-14 w-14 rounded-full flex items-center justify-center"
         style={{
+          right: "calc(1.25rem + env(safe-area-inset-right, 0px))",
+          bottom: "calc(1.25rem + env(safe-area-inset-bottom, 0px))",
           background: "radial-gradient(circle at 30% 30%, #E6D3A8 0%, #C9A96E 55%, #7a5c2a 100%)",
           boxShadow: "0 12px 40px rgba(201,169,110,0.55), 0 0 0 1px rgba(255,255,255,0.15) inset, 0 0 80px rgba(201,169,110,0.3)",
         }}
@@ -112,7 +114,15 @@ export default function FloatingChat() {
             exit={{ opacity: 0, y: 20, scale: 0.98 }}
             transition={{ duration: 0.28, ease: "easeOut" }}
             data-testid="chat-panel"
-            className="fixed z-[69] right-3 md:right-8 bottom-24 md:bottom-28 w-[calc(100vw-24px)] md:w-[400px] max-h-[70vh] rounded-2xl glass-strong flex flex-col overflow-hidden"
+            className="fixed z-[69] rounded-2xl glass-strong flex flex-col overflow-hidden"
+            style={{
+              right: "max(0.75rem, env(safe-area-inset-right, 0px))",
+              left: "max(0.75rem, env(safe-area-inset-left, 0px))",
+              bottom: "calc(6rem + env(safe-area-inset-bottom, 0px))",
+              maxHeight: "min(70dvh, 600px)",
+              maxWidth: "400px",
+              marginLeft: "auto",
+            }}
           >
             <div className="px-5 pt-5 pb-3 flex items-center justify-between border-b border-gold/15">
               <div>

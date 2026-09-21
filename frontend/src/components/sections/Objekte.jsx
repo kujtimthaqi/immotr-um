@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { getListings, createInquiry } from "@/lib/api";
 import { SectionHeader } from "@/components/sections/Leistungen";
 import { toast } from "sonner";
+import { useAutoPlayVideo, usePrefersSaveMotion } from "@/lib/useVideo";
 
 const DigitalTwin = lazy(() => import("@/components/DigitalTwin"));
 
@@ -192,65 +193,58 @@ function TwinFallback() {
 }
 
 function ReferenceFeature({ listing, isMobile }) {
-  const ref = useRef(null);
-  const videoRef = useRef(null);
-  const [inView, setInView] = useState(false);
-  const [reduced, setReduced] = useState(false);
-
-  useEffect(() => {
-    setReduced(window.matchMedia("(prefers-reduced-motion: reduce)").matches);
-    if (!ref.current) return;
-    const obs = new IntersectionObserver(entries => {
-      entries.forEach(e => setInView(e.isIntersecting));
-    }, { threshold: 0.25 });
-    obs.observe(ref.current);
-    return () => obs.disconnect();
-  }, []);
-
-  useEffect(() => {
-    const v = videoRef.current;
-    if (!v) return;
-    if (inView && !reduced && !isMobile) v.play().catch(() => {});
-    else v.pause();
-  }, [inView, reduced, isMobile]);
-
-  const useVideo = !isMobile && !reduced;
+  const reduced = usePrefersSaveMotion();
+  const enabled = !reduced && !!listing.video_url;
+  const { ref: videoRef, playing, blocked, toggle } = useAutoPlayVideo({ threshold: 0.6, enabled });
   const m = /^\/media\/([^/]+?)-800\.webp$/.exec(listing.image_url || "");
   const base = m ? `/media/${m[1]}` : "/media/landhaus";
   const videoBase = listing.video_url ? listing.video_url.replace(/\.mp4$/, "") : "/media/landhaus";
+  const mobileBase = `${videoBase}-mobile`;
 
   return (
     <motion.div
-      ref={ref}
       initial={{ opacity: 0, y: 30, filter: "blur(8px)" }}
       whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
       viewport={{ once: true, margin: "-60px" }}
       transition={{ duration: 0.9 }}
       data-testid="reference-feature"
-      className="mt-8 relative rounded-2xl overflow-hidden glass-strong border border-gold/40 gold-glow"
+      className="mt-8 relative rounded-2xl overflow-hidden glass-strong border border-gold/40 gold-glow cursor-pointer"
       style={{ aspectRatio: "4 / 3" }}
+      onClick={() => enabled && toggle && toggle()}
     >
       <picture>
-        <source type="image/avif" srcSet={`${base}-1600.avif`} />
+        <source type="image/avif" srcSet={`${base}-800.avif 800w, ${base}-1600.avif 1600w`} sizes="(max-width: 768px) 100vw, 1200px" />
         <source type="image/webp" srcSet={`${base}-800.webp 800w, ${base}-1600.webp 1600w, ${base}-2400.webp 2400w`} sizes="(max-width: 1024px) 100vw, 1200px" />
         <img
           src={`${base}-1600.webp`}
           alt={listing.title}
           loading="lazy"
           decoding="async"
-          className="absolute inset-0 w-full h-full object-cover"
+          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${playing ? "opacity-0" : "opacity-100"}`}
         />
       </picture>
-      {useVideo && inView && (
+      {enabled && (
         <video
           ref={videoRef}
-          muted loop playsInline preload="metadata"
+          muted loop playsInline
+          /* eslint-disable-next-line react/no-unknown-property */
+          webkit-playsinline="true"
+          disablePictureInPicture
+          preload="metadata"
           poster={`${base}-1600.webp`}
-          className="absolute inset-0 w-full h-full object-cover"
+          data-testid="reference-video"
+          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${playing ? "opacity-100" : "opacity-0"}`}
         >
-          <source src={`${videoBase}.webm`} type="video/webm" />
-          <source src={`${videoBase}.mp4`} type="video/mp4" />
+          {isMobile && <source src={`${mobileBase}.webm`} type="video/webm" />}
+          {isMobile && <source src={`${mobileBase}.mp4`} type="video/mp4" />}
+          {!isMobile && <source src={`${videoBase}.webm`} type="video/webm" />}
+          {!isMobile && <source src={`${videoBase}.mp4`} type="video/mp4" />}
         </video>
+      )}
+      {blocked && (
+        <button onClick={(e) => { e.stopPropagation(); toggle(); }} className="absolute inset-0 m-auto w-14 h-14 rounded-full btn-gold flex items-center justify-center" aria-label="Video abspielen">
+          <span className="text-navy">▶</span>
+        </button>
       )}
       <div className="absolute inset-0 bg-gradient-to-t from-[#0A1428] via-[#0A1428]/40 to-transparent pointer-events-none"/>
       <div className="absolute bottom-0 inset-x-0 p-6 md:p-10">
@@ -331,6 +325,7 @@ function ListingCard({ listing, idx, active, onEnter, onLeave, onInquire }) {
               alt={listing.title}
               videoSrc={listing.video_url}
               hoverToPlay={!!listing.video_url}
+              autoInView={!!listing.video_url}
             />
           </div>
         ) : (
@@ -468,27 +463,40 @@ function Field({ label, required, children }) {
 }
 
 // Renders an optimized <picture> when the image_url follows the /media/*-800.webp or /media/*-1600.webp naming; else plain <img>.
-function ListingPicture({ src, alt, videoSrc, hoverToPlay = false }) {
+function ListingPicture({ src, alt, videoSrc, hoverToPlay = false, autoInView = false }) {
   const m = /^(\/media\/[^/]+?)-(?:800|1600|2400)\.webp$/.exec(src || "");
   const [hover, setHover] = useState(false);
-  const vRef = useRef(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const reduced = usePrefersSaveMotion();
+  useEffect(() => {
+    const c = () => setIsMobile(window.innerWidth < 768);
+    c(); window.addEventListener("resize", c);
+    return () => window.removeEventListener("resize", c);
+  }, []);
+
+  const enabled = !!videoSrc && !reduced && (autoInView || (isMobile && hoverToPlay));
+  const { ref: autoRef, playing, toggle } = useAutoPlayVideo({ threshold: 0.6, enabled });
+  const vHover = useRef(null);
+  const vRef = enabled ? autoRef : vHover;
 
   useEffect(() => {
-    if (!videoSrc || !vRef.current) return;
-    if (hover) { vRef.current.currentTime = 0; vRef.current.play().catch(() => {}); }
-    else { vRef.current.pause(); }
-  }, [hover, videoSrc]);
+    if (enabled || !videoSrc || !vHover.current) return;
+    if (hover) { vHover.current.currentTime = 0; vHover.current.play().catch(() => {}); }
+    else { vHover.current.pause(); }
+  }, [hover, videoSrc, enabled]);
 
   if (!m) return <img src={src} alt={alt} loading="lazy" decoding="async" className="w-full h-full object-cover"/>;
   const base = m[1];
+  const mobileMp4 = videoSrc ? videoSrc.replace(/\.mp4$/, "-mobile.mp4") : null;
+  const mobileWebm = videoSrc ? videoSrc.replace(/\.mp4$/, "-mobile.webm") : null;
+  const desktopWebm = videoSrc ? videoSrc.replace(/\.mp4$/, ".webm") : null;
+
   return (
     <div
       className="w-full h-full relative overflow-hidden"
-      onMouseEnter={() => hoverToPlay && setHover(true)}
-      onMouseLeave={() => hoverToPlay && setHover(false)}
-      onFocus={() => hoverToPlay && setHover(true)}
-      onBlur={() => hoverToPlay && setHover(false)}
-      tabIndex={hoverToPlay ? 0 : -1}
+      onMouseEnter={() => hoverToPlay && !isMobile && setHover(true)}
+      onMouseLeave={() => hoverToPlay && !isMobile && setHover(false)}
+      onClick={() => (isMobile || autoInView) && videoSrc && toggle && toggle()}
     >
       <picture>
         <source
@@ -506,20 +514,25 @@ function ListingPicture({ src, alt, videoSrc, hoverToPlay = false }) {
           alt={alt}
           loading="lazy"
           decoding="async"
-          className={`w-full h-full object-cover transition-opacity duration-500 ${hover && videoSrc ? "opacity-0" : "opacity-100"}`}
+          className={`w-full h-full object-cover transition-opacity duration-500 ${(hover || playing) && videoSrc ? "opacity-0" : "opacity-100"}`}
         />
       </picture>
-      {videoSrc && (
+      {videoSrc && !reduced && (
         <video
           ref={vRef}
           muted
           loop
           playsInline
-          preload="none"
-          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${hover ? "opacity-100" : "opacity-0"}`}
+          /* eslint-disable-next-line react/no-unknown-property */
+          webkit-playsinline="true"
+          disablePictureInPicture
+          preload={autoInView ? "metadata" : "none"}
+          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${(hover || playing) ? "opacity-100" : "opacity-0"}`}
         >
-          <source src={videoSrc.replace(/\.mp4$/, ".webm")} type="video/webm" />
-          <source src={videoSrc} type="video/mp4" />
+          {isMobile && mobileWebm && <source src={mobileWebm} type="video/webm" />}
+          {isMobile && mobileMp4 && <source src={mobileMp4} type="video/mp4" />}
+          {!isMobile && desktopWebm && <source src={desktopWebm} type="video/webm" />}
+          {!isMobile && videoSrc && <source src={videoSrc} type="video/mp4" />}
         </video>
       )}
     </div>
