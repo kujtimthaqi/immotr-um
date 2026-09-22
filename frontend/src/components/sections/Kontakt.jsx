@@ -91,7 +91,10 @@ export default function Kontakt() {
             </Fld>
 
             <div className="pt-3 flex flex-wrap items-center justify-between gap-3">
-              <div className="text-xs text-white/50">Wir antworten in der Regel innert 24 h.</div>
+              <div className="text-xs text-white/50">
+                Wir antworten in der Regel innert 24 h.<br/>
+                <span className="text-white/40">Mit dem Absenden stimmen Sie der Bearbeitung gemäss <a href="/datenschutz" className="link-gold">Datenschutzerklärung</a> zu.</span>
+              </div>
               <button disabled={sending} type="submit" className="h-11 px-6 rounded-full btn-gold text-[12px] uppercase tracking-[0.14em] disabled:opacity-60" data-testid="c-submit">
                 {sending ? "Sende…" : "Nachricht senden"}
               </button>

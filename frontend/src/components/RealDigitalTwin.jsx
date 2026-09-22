@@ -1,10 +1,15 @@
 /**
- * RealDigitalTwin — echte Gebäude aus swisstopo swissBUILDINGS3D,
- * einmalig serverseitig zu /twin/rorschach.glb (~800 KB) und
- * /twin/rorschach-lite.glb (~470 KB) gebacken (siehe scripts/build_twin.py).
- * Läuft flüssig auf Mobile & Desktop, 1 einziger Request pro Session.
+ * RealDigitalTwin — echte swisstopo-Gebäude, statisches GLB-Bake.
+ * Zielgebäude (obj_trischli16, obj_reitbahn39, obj_geren9) sind separate Nodes
+ * → können individuell hervorgehoben werden.
  *
- * Data © swisstopo — Open Data.
+ * Interaction:
+ *  - selectedIndex Prop (extern gesetzt via Objekt-Karten oder Marker-Click)
+ *  - onSelect Callback: Marker-Click meldet Auswahl nach oben
+ *  - onDeselect Callback: „Übersicht"-Button
+ *  - CameraRig fliegt gedämpft zum Target
+ *
+ * Data © swisstopo · Open Data.
  */
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree, useLoader } from "@react-three/fiber";
@@ -14,30 +19,30 @@ import { OrbitControls as ThreeOrbitControls } from "three-stdlib";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import StylizedDigitalTwin from "./DigitalTwin";
+import React from "react";
 
-// Rorschach-Zentrum (identisch zu build_twin.py — sonst wandern die Marker!)
 const CENTER_LAT = 47.4775;
 const CENTER_LON = 9.4880;
 const DEG = Math.PI / 180;
 
-// Lat/Lon → local ENU meters (Y-up, X=East, Z=South)
 function latLngToLocal(lat, lng) {
   const dLat = (lat - CENTER_LAT) * 111320;
   const dLon = (lng - CENTER_LON) * 111320 * Math.cos(CENTER_LAT * DEG);
   return [dLon, 0, -dLat];
 }
 
-// ---- Shared Draco loader (self-hosted decoder — no external CDN) ----
-function makeGLTFLoader() {
-  const gltfLoader = new GLTFLoader();
-  const dracoLoader = new DRACOLoader();
-  dracoLoader.setDecoderPath("/draco/");
-  gltfLoader.setDRACOLoader(dracoLoader);
-  return gltfLoader;
+// Map Adresse → GLB-Node-Name aus Bake-Skript
+function targetNodeFor(listing) {
+  if (!listing) return null;
+  const a = (listing.address || "").toLowerCase();
+  if (a.includes("trischlistrasse 16")) return "obj_trischli16";
+  if (a.includes("reitbahnstrasse 39")) return "obj_reitbahn39";
+  if (a.includes("gerenstrasse 9"))     return "obj_geren9";
+  return null;
 }
 
 // ---- Buildings from baked GLB ----
-function RorschachBuildings({ mobile, onReady }) {
+function RorschachBuildings({ mobile, selectedNodeName, onReady }) {
   const url = mobile ? "/twin/rorschach-lite.glb" : "/twin/rorschach.glb";
   const gltf = useLoader(GLTFLoader, url, (loader) => {
     const draco = new DRACOLoader();
@@ -45,49 +50,72 @@ function RorschachBuildings({ mobile, onReady }) {
     loader.setDRACOLoader(draco);
   });
 
-  const meshRef = useRef();
+  const materials = useRef({
+    bg: new THREE.MeshStandardMaterial({ color: "#e6e8ee", roughness: 0.85, metalness: 0.05 }),
+    matte: new THREE.MeshStandardMaterial({ color: "#e6e8ee", roughness: 0.85, metalness: 0.05 }),
+    goldOn: new THREE.MeshStandardMaterial({
+      color: "#E6D3A8", roughness: 0.4, metalness: 0.4,
+      emissive: "#C9A96E", emissiveIntensity: 1.1,
+    }),
+  });
+
+  const targetMeshes = useRef({}); // name → mesh
+  const edgeLines = useRef({}); // name → LineSegments
 
   useEffect(() => {
     if (!gltf?.scene) return;
-    // Uniform matte material for all buildings
-    const buildingMat = new THREE.MeshStandardMaterial({
-      color: "#e6e8ee",
-      roughness: 0.85,
-      metalness: 0.05,
-      side: THREE.FrontSide,
-      flatShading: false,
-    });
+    const bgMat = materials.current.bg;
+    const targets = ["obj_trischli16", "obj_reitbahn39", "obj_geren9"];
     gltf.scene.traverse((obj) => {
-      if (obj.isMesh) {
-        obj.material = buildingMat;
-        obj.castShadow = false;
-        obj.receiveShadow = false;
-        obj.geometry?.computeVertexNormals?.();
-        obj.frustumCulled = true;
-        meshRef.current = obj;
+      if (!obj.isMesh) return;
+      const nm = obj.parent?.name || obj.name || "";
+      if (targets.includes(nm)) {
+        targetMeshes.current[nm] = obj;
+        obj.material = materials.current.matte;
+        // Add edge lines child for glow-outline
+        const eg = new THREE.EdgesGeometry(obj.geometry, 30);
+        const line = new THREE.LineSegments(
+          eg,
+          new THREE.LineBasicMaterial({ color: "#E6D3A8", transparent: true, opacity: 0 })
+        );
+        obj.add(line);
+        edgeLines.current[nm] = line;
+      } else {
+        obj.material = bgMat;
       }
+      obj.frustumCulled = true;
+      obj.castShadow = false;
     });
-    onReady?.(meshRef.current);
+    onReady?.({
+      scene: gltf.scene,
+      targetMeshes: targetMeshes.current,
+    });
   }, [gltf, onReady]);
+
+  // Switch materials on selection
+  useEffect(() => {
+    const names = Object.keys(targetMeshes.current);
+    for (const nm of names) {
+      const m = targetMeshes.current[nm];
+      const isSelected = nm === selectedNodeName;
+      m.material = isSelected ? materials.current.goldOn : materials.current.matte;
+      const line = edgeLines.current[nm];
+      if (line) line.material.opacity = isSelected ? 0.9 : 0;
+    }
+  }, [selectedNodeName]);
 
   return gltf?.scene ? <primitive object={gltf.scene} /> : null;
 }
 
-// ---- Raycast helper: find y (top of buildings) at (x, z) ----
-function raycastYAt(mesh, x, z) {
-  if (!mesh) return 0;
-  const raycaster = new THREE.Raycaster(
-    new THREE.Vector3(x, 500, z),
-    new THREE.Vector3(0, -1, 0),
-    0,
-    2000
-  );
-  const hits = raycaster.intersectObject(mesh, false);
+function raycastYAt(scene, x, z) {
+  if (!scene) return 0;
+  const rc = new THREE.Raycaster(new THREE.Vector3(x, 500, z), new THREE.Vector3(0, -1, 0), 0, 2000);
+  const hits = rc.intersectObject(scene, true);
   return hits.length ? hits[0].point.y : 0;
 }
 
-// ---- Gold-Marker column + pulsating ring at a building ----
-function ObjectMarker({ position, highlight = false, label, sub }) {
+// ---- Interactive Marker with click ----
+function ObjectMarker({ position, index, highlight, onClick }) {
   const ringRef = useRef();
   const beamRef = useRef();
   useFrame(({ clock }) => {
@@ -98,71 +126,37 @@ function ObjectMarker({ position, highlight = false, label, sub }) {
       ringRef.current.material.opacity = 0.4 + Math.sin(t * 1.8) * 0.2;
     }
     if (beamRef.current) {
-      beamRef.current.material.emissiveIntensity = 1.3 + Math.sin(t * 2.4) * 0.4;
+      beamRef.current.material.emissiveIntensity = highlight ? 2.0 : 1.3 + Math.sin(t * 2.4) * 0.4;
     }
   });
   const baseY = position[1] ?? 0;
   return (
-    <group position={[position[0], 0, position[2]]}>
-      {/* Boden-Ring auf Höhe 0 */}
+    <group
+      position={[position[0], 0, position[2]]}
+      onClick={(e) => { e.stopPropagation(); onClick?.(index); }}
+      onPointerOver={(e) => (document.body.style.cursor = "pointer")}
+      onPointerOut={(e) => (document.body.style.cursor = "")}
+    >
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.2, 0]} ref={ringRef}>
         <ringGeometry args={[8, 12, 64]} />
-        <meshBasicMaterial
-          color={highlight ? "#E6D3A8" : "#C9A96E"}
-          transparent
-          opacity={0.55}
-          side={THREE.DoubleSide}
-          depthWrite={false}
-        />
+        <meshBasicMaterial color={highlight ? "#E6D3A8" : "#C9A96E"} transparent opacity={0.55} side={THREE.DoubleSide} depthWrite={false} />
       </mesh>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.15, 0]}>
         <ringGeometry args={[3.5, 5, 48]} />
         <meshBasicMaterial color="#C9A96E" transparent opacity={0.7} side={THREE.DoubleSide} depthWrite={false} />
       </mesh>
-      {/* Beam von Boden bis knapp über Dach */}
       <mesh ref={beamRef} position={[0, baseY / 2 + 15, 0]}>
-        <cylinderGeometry args={[0.5, 0.5, baseY + 30, 16]} />
-        <meshStandardMaterial
-          color="#E6D3A8"
-          emissive="#C9A96E"
-          emissiveIntensity={1.4}
-          transparent
-          opacity={0.85}
-        />
+        <cylinderGeometry args={[0.6, 0.6, baseY + 30, 16]} />
+        <meshStandardMaterial color="#E6D3A8" emissive="#C9A96E" emissiveIntensity={1.4} transparent opacity={0.85} />
       </mesh>
-      {/* Kugel oben */}
       <mesh position={[0, baseY + 32, 0]}>
-        <sphereGeometry args={[1.6, 16, 16]} />
+        <sphereGeometry args={[1.8, 16, 16]} />
         <meshStandardMaterial color="#E6D3A8" emissive="#E6D3A8" emissiveIntensity={2.2} />
       </mesh>
     </group>
   );
 }
 
-// ---- Highlight outline of building "top" via raycast bounding box ----
-function BuildingHighlight({ position }) {
-  const groupRef = useRef();
-  useFrame(({ clock }) => {
-    if (!groupRef.current) return;
-    const t = clock.getElapsedTime();
-    groupRef.current.children.forEach((c) => {
-      if (c.material) c.material.opacity = 0.55 + Math.sin(t * 2) * 0.25;
-    });
-  });
-  const [x, y, z] = position;
-  const w = 10, h = Math.max(6, y - 2);
-  return (
-    <group ref={groupRef} position={[x, 0, z]}>
-      {/* Kanten-Box am Ort */}
-      <lineSegments>
-        <edgesGeometry args={[new THREE.BoxGeometry(w, h, w)]} attach="geometry" />
-        <lineBasicMaterial color="#E6D3A8" transparent opacity={0.9} />
-      </lineSegments>
-    </group>
-  );
-}
-
-// ---- Camera control ----
 function LimitedControls({ enabled }) {
   const { camera, gl } = useThree();
   const ref = useRef();
@@ -176,7 +170,7 @@ function LimitedControls({ enabled }) {
     c.maxPolarAngle = Math.PI / 2.4;
     c.minDistance = 220;
     c.maxDistance = 900;
-    c.target.set(0, 20, 0);
+    c.target.set(0, 40, 0);
     ref.current = c;
     return () => c.dispose();
   }, [camera, gl, enabled]);
@@ -192,7 +186,7 @@ function CameraRig({ target, mobile }) {
   useFrame((_, dt) => {
     if (target) {
       const [x, y, z] = target;
-      desired.current.set(x + 120, Math.max(140, y + 90), z + 120);
+      desired.current.set(x + 100, Math.max(120, y + 70), z + 100);
       look.current.set(x, y * 0.5 + 20, z);
     } else {
       angle.current += dt * 0.06;
@@ -200,13 +194,17 @@ function CameraRig({ target, mobile }) {
       desired.current.set(Math.cos(angle.current) * r, mobile ? 360 : 320, Math.sin(angle.current) * r);
       look.current.set(0, 40, 0);
     }
-    camera.position.lerp(desired.current, 0.045);
+    camera.position.lerp(desired.current, 0.05);
     camera.lookAt(look.current);
+    // Debug hook for tests
+    window.__twinDebug = {
+      cam: [+camera.position.x.toFixed(1), +camera.position.y.toFixed(1), +camera.position.z.toFixed(1)],
+      target,
+    };
   });
   return null;
 }
 
-// ---- Bodensee (north of Rorschach) ----
 function BodenseePlane() {
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.6, -500]}>
@@ -219,15 +217,10 @@ function BodenseePlane() {
 function ShoreLine() {
   const geo = useMemo(() => {
     const g = new THREE.BufferGeometry();
-    const pts = [-600, 0.5, -50, 600, 0.5, -50];
-    g.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
+    g.setAttribute("position", new THREE.Float32BufferAttribute([-600, 0.5, -50, 600, 0.5, -50], 3));
     return g;
   }, []);
-  return (
-    <line geometry={geo}>
-      <lineBasicMaterial color="#C9A96E" transparent opacity={0.55} />
-    </line>
-  );
+  return <line geometry={geo}><lineBasicMaterial color="#C9A96E" transparent opacity={0.55} /></line>;
 }
 
 function Ground() {
@@ -240,10 +233,10 @@ function Ground() {
 }
 
 // ---- Main ----
-export default function RealDigitalTwin({ highlightIndex, listings = [], mobile = false }) {
+export default function RealDigitalTwin({ highlightIndex, selectedIndex, onSelect, onDeselect, listings = [], mobile = false }) {
   const [webglLost, setWebglLost] = useState(false);
   const [glbFailed, setGlbFailed] = useState(false);
-  const [buildingsMesh, setBuildingsMesh] = useState(null);
+  const [gltfState, setGltfState] = useState(null);
 
   const objects = useMemo(
     () =>
@@ -253,26 +246,25 @@ export default function RealDigitalTwin({ highlightIndex, listings = [], mobile 
     [listings]
   );
 
-  // ENU (x, 0, z) für jede Adresse
-  const rawPositions = useMemo(
-    () => objects.map((o) => latLngToLocal(o.lat, o.lng)),
-    [objects]
-  );
-
-  // Nach GLB-Load: raycasten und y-Höhe (Dach) je Punkt bestimmen
+  const rawPositions = useMemo(() => objects.map((o) => latLngToLocal(o.lat, o.lng)), [objects]);
   const positions = useMemo(() => {
-    if (!buildingsMesh) return rawPositions;
-    return rawPositions.map(([x, , z]) => [x, raycastYAt(buildingsMesh, x, z), z]);
-  }, [rawPositions, buildingsMesh]);
+    if (!gltfState?.scene) return rawPositions;
+    return rawPositions.map(([x, , z]) => [x, raycastYAt(gltfState.scene, x, z), z]);
+  }, [rawPositions, gltfState]);
 
-  const target = highlightIndex != null && positions[highlightIndex] ? positions[highlightIndex] : null;
+  // effective focus: selectedIndex overrides highlightIndex (hover)
+  const focusIdx = selectedIndex != null ? selectedIndex : highlightIndex;
+  const target = focusIdx != null && positions[focusIdx] ? positions[focusIdx] : null;
+  const selectedNode = targetNodeFor(objects[selectedIndex]);
 
   if (webglLost || glbFailed) {
     return <StylizedDigitalTwin highlightIndex={highlightIndex} listings={listings} mobile={mobile} />;
   }
 
+  const selectedLabel = selectedIndex != null ? objects[selectedIndex] : null;
+
   return (
-    <div className="relative w-full h-full" data-testid="real-digital-twin">
+    <div className="relative w-full h-full" data-testid="real-digital-twin" data-selected-index={selectedIndex ?? ""}>
       <Canvas
         shadows={false}
         dpr={mobile ? [1, 1.5] : [1, 2]}
@@ -304,21 +296,18 @@ export default function RealDigitalTwin({ highlightIndex, listings = [], mobile 
 
         <Suspense fallback={null}>
           <ErrorBoundary onError={() => setGlbFailed(true)}>
-            <RorschachBuildings mobile={mobile} onReady={setBuildingsMesh} />
+            <RorschachBuildings mobile={mobile} selectedNodeName={selectedNode} onReady={setGltfState} />
           </ErrorBoundary>
         </Suspense>
 
-        {/* Object markers @ real swisstopo lat/lng, y raycasted */}
         {positions.map((p, i) => (
-          <group key={objects[i]?.id || i}>
-            {highlightIndex === i && <BuildingHighlight position={p} />}
-            <ObjectMarker
-              position={p}
-              highlight={highlightIndex === i}
-              label={objects[i]?.title}
-              sub={objects[i]?.address}
-            />
-          </group>
+          <ObjectMarker
+            key={objects[i]?.id || i}
+            position={p}
+            index={i}
+            highlight={focusIdx === i}
+            onClick={onSelect}
+          />
         ))}
 
         <CameraRig target={target} mobile={mobile} />
@@ -328,6 +317,23 @@ export default function RealDigitalTwin({ highlightIndex, listings = [], mobile 
           <Bloom intensity={mobile ? 0.4 : 0.7} luminanceThreshold={0.5} luminanceSmoothing={0.25} mipmapBlur />
         </EffectComposer>
       </Canvas>
+
+      {/* Selection label + Übersicht-Button */}
+      {selectedLabel && (
+        <div
+          className="absolute top-3 right-3 glass px-3 py-2 rounded-full text-[10px] uppercase tracking-[0.24em] text-gold-light pointer-events-auto flex items-center gap-3"
+          data-testid="twin-selection-label"
+        >
+          <span className="truncate max-w-[180px] text-white/90 normal-case tracking-tight">{selectedLabel.address}</span>
+          <button
+            onClick={onDeselect}
+            data-testid="twin-deselect-btn"
+            className="text-gold hover:text-gold-light underline underline-offset-2 uppercase tracking-[0.24em]"
+          >
+            Übersicht
+          </button>
+        </div>
+      )}
 
       <div
         className="absolute bottom-2 left-3 text-[10px] tracking-[0.16em] text-white/50 pointer-events-none select-none"
@@ -339,8 +345,6 @@ export default function RealDigitalTwin({ highlightIndex, listings = [], mobile 
   );
 }
 
-// ---- Simple ErrorBoundary for GLB load failures ----
-import React from "react";
 class ErrorBoundary extends React.Component {
   constructor(p) { super(p); this.state = { hasError: false }; }
   static getDerivedStateFromError() { return { hasError: true }; }

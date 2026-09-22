@@ -29,10 +29,19 @@ export default function Objekte() {
   const [tab, setTab] = useState("rental");
   const [listings, setListings] = useState([]);
   const [hoverIdx, setHoverIdx] = useState(null);
+  const [selectedIdx, setSelectedIdx] = useState(null);
   const [inquiryFor, setInquiryFor] = useState(null);
   const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
   const twinRef = useRef(null);
   const [showTwin, setShowTwin] = useState(false);
+
+  const handleSelect = (i) => {
+    setSelectedIdx(i);
+    if (window.innerWidth < 768 && twinRef.current) {
+      twinRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  };
+  const handleDeselect = () => setSelectedIdx(null);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -102,7 +111,7 @@ export default function Objekte() {
           <div ref={twinRef} className="lg:col-span-7 h-[380px] md:h-[520px] rounded-2xl overflow-hidden glass relative">
             {showTwin ? (
               <Suspense fallback={<TwinFallback />}>
-                <DigitalTwin highlightIndex={hoverIdx} listings={restFiltered} mobile={isMobile} />
+                <DigitalTwin highlightIndex={hoverIdx} selectedIndex={selectedIdx} onSelect={handleSelect} onDeselect={handleDeselect} listings={restFiltered} mobile={isMobile} />
               </Suspense>
             ) : <TwinFallback />}
 
@@ -168,6 +177,7 @@ export default function Objekte() {
                 onEnter={() => setHoverIdx(i)}
                 onLeave={() => setHoverIdx(null)}
                 onInquire={() => setInquiryFor(l)}
+                onSelect={() => handleSelect(i)}
               />
             ))}
             {tab === "rental" && (
@@ -304,7 +314,7 @@ function ArezenOverlayVideo({ listing, isMobile }) {
   );
 }
 
-function ListingCard({ listing, idx, active, onEnter, onLeave, onInquire }) {
+function ListingCard({ listing, idx, active, onEnter, onLeave, onInquire, onSelect }) {
   const st = STATUS[listing.status] || STATUS.available;
   return (
     <motion.div
@@ -314,8 +324,9 @@ function ListingCard({ listing, idx, active, onEnter, onLeave, onInquire }) {
       transition={{ duration: 0.5, delay: idx * 0.04 }}
       onMouseEnter={onEnter}
       onMouseLeave={onLeave}
+      onClick={onSelect}
       data-testid={`listing-card-${listing.id}`}
-      className={`glass rounded-2xl overflow-hidden transition-all ${active ? "gold-glow" : ""}`}
+      className={`glass rounded-2xl overflow-hidden transition-all cursor-pointer ${active ? "gold-glow" : ""}`}
     >
       <div className="flex gap-0">
         {listing.image_url ? (
@@ -369,7 +380,7 @@ function ListingCard({ listing, idx, active, onEnter, onLeave, onInquire }) {
               )}
             </div>
           )}
-          <div className="mt-4 flex flex-wrap gap-2">
+          <div className="mt-4 flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
             {listing.kind === "rental" && (
               <button
                 onClick={onInquire}

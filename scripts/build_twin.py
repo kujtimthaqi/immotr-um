@@ -252,6 +252,29 @@ def transform_positions(pts, node_mat, rtc):
     return yup
 
 # --- Main pipeline ---
+# Ziel-Adressen in ENU-Metern (relativ CENTER_LAT/LON)
+def latlng_to_enu(lat, lon):
+    dLat = (lat - CENTER_LAT) * 111320
+    dLon = (lon - CENTER_LON) * 111320 * math.cos(math.radians(CENTER_LAT))
+    return (dLon, -dLat)  # (E, -N) in three.js Y-up: X=East, Z=-North
+
+TARGETS = [
+    ("obj_trischli16",   47.47791290283203, 9.488584518432617),
+    ("obj_reitbahn39",   47.47550964355469, 9.487098693847656),
+    ("obj_geren9",       47.47812271118164, 9.487630844116211),
+]
+TARGET_RADIUS_M = 100.0  # Adresse liegt am Strassenpunkt, Building-Center kann ~50-90m weg sein
+
+def find_target_for_center(cx, cz):
+    """Returns target index (0..2) if building center falls within radius, else None."""
+    best_i, best_d = None, TARGET_RADIUS_M
+    for i, (_, lat, lon) in enumerate(TARGETS):
+        tx, tz = latlng_to_enu(lat, lon)
+        d = math.hypot(cx - tx, cz - tz)
+        if d < best_d:
+            best_d, best_i = d, i
+    return best_i
+
 def main():
     print(f"Bounding box: lat [{CENTER_LAT - HALF_LAT:.5f}, {CENTER_LAT + HALF_LAT:.5f}] "
           f"lon [{CENTER_LON - HALF_LON:.5f}, {CENTER_LON + HALF_LON:.5f}]")
@@ -269,15 +292,18 @@ def main():
         return 1
 
     print("\n[2/4] Downloading + decoding b3dm tiles…")
-    all_positions = []
-    all_indices = []
-    vertex_offset = 0
-    stats = {"downloaded": 0, "meshes": 0, "vertices": 0, "faces": 0, "failed": 0}
+    bg_positions, bg_indices = [], []
+    target_positions = [[] for _ in TARGETS]
+    target_indices = [[] for _ in TARGETS]
+    bg_offset = 0
+    target_offsets = [0, 0, 0]
+    stats = {"downloaded": 0, "meshes": 0, "vertices": 0, "faces": 0, "failed": 0,
+             "target_hits": [0, 0, 0]}
 
     def fetch(u):
         try:
             return u, http_get(u)
-        except Exception as e:
+        except Exception:
             return u, None
 
     with ThreadPoolExecutor(max_workers=10) as pool:
@@ -291,46 +317,86 @@ def main():
                 meshes = extract_meshes_from_glb(glb)
                 for m in meshes:
                     pts = transform_positions(m["positions"], m["matrix"], rtc)
-                    idx = m["indices"] + vertex_offset
-                    all_positions.append(pts)
-                    all_indices.append(idx)
-                    vertex_offset += pts.shape[0]
+                    idx = m["indices"]
+                    cx = float(pts[:, 0].mean())
+                    cz = float(pts[:, 2].mean())
+                    ti = find_target_for_center(cx, cz)
+                    if ti is not None:
+                        target_positions[ti].append(pts)
+                        target_indices[ti].append(idx + target_offsets[ti])
+                        target_offsets[ti] += pts.shape[0]
+                        stats["target_hits"][ti] += 1
+                    else:
+                        bg_positions.append(pts)
+                        bg_indices.append(idx + bg_offset)
+                        bg_offset += pts.shape[0]
                     stats["meshes"] += 1
                     stats["vertices"] += pts.shape[0]
                     stats["faces"] += idx.shape[0] // 3
-            except Exception as ex:
+            except Exception:
                 stats["failed"] += 1
             if (i + 1) % 25 == 0:
                 print(f"  {i+1}/{len(b3dm_urls)} tiles, verts so far: {stats['vertices']}", flush=True)
 
     print(f"\n  Stats: {stats}")
 
-    if not all_positions:
+    if not bg_positions and not any(target_positions):
         print("ERROR: no meshes extracted.")
         return 1
 
-    positions = np.concatenate(all_positions, axis=0)
-    indices = np.concatenate(all_indices, axis=0)
-    # Shift so that ground level (min-y) sits at y=0 (visual convenience —
-    # ECEF height reference varies vs. Swiss LN02 by ~50m + terrain runs up
-    # from Bodensee at 396m to Rorschacherberg south)
-    y_shift = float(positions[:, 1].min())
-    positions[:, 1] -= y_shift
-    print(f"  Merged: {positions.shape[0]:,} vertices, {indices.shape[0]//3:,} faces (y-shift={y_shift:.1f}m)")
+    def concat_group(pts_list, idx_list):
+        if not pts_list:
+            return None, None
+        return np.concatenate(pts_list, axis=0), np.concatenate(idx_list, axis=0)
+
+    bg_pos, bg_idx = concat_group(bg_positions, bg_indices)
+    target_data = [concat_group(target_positions[i], target_indices[i]) for i in range(len(TARGETS))]
+
+    # Y-shift: use overall min-y so ground is at y=0
+    all_ys = [bg_pos[:, 1].min()] if bg_pos is not None else []
+    for tp, _ in target_data:
+        if tp is not None:
+            all_ys.append(tp[:, 1].min())
+    y_shift = float(min(all_ys)) if all_ys else 0.0
+    if bg_pos is not None:
+        bg_pos[:, 1] -= y_shift
+    for k in range(len(target_data)):
+        tp, ti = target_data[k]
+        if tp is not None:
+            tp[:, 1] -= y_shift
+            target_data[k] = (tp, ti)
+
+    print(f"  Background: {bg_pos.shape[0] if bg_pos is not None else 0:,} verts, target_hits={stats['target_hits']} (y-shift={y_shift:.1f}m)")
 
     # Sanity: prune vertices outside our ENU bbox (some tiles may extend further)
     # Not strictly needed; keep
 
-    print("\n[3/4] Writing GLBs (with Draco compression)…")
-    # Desktop: decimate mildly (0.5 m cell) → Draco encode
-    d_pts, d_idx = decimate_naive(positions, indices, cell=0.5)
-    print(f"  Desktop: {d_pts.shape[0]:,} vertices, {d_idx.shape[0]//3:,} faces")
-    write_glb_draco(OUT_DIR / "rorschach.glb", d_pts, d_idx, quantization_bits=14, compression_level=7)
+    print("\n[3/4] Writing GLBs (with Draco compression, multi-primitive)…")
+    # Group primitives: 0=background, 1..N=target buildings
+    primitives_desktop = []
+    primitives_lite = []
 
-    # Lite: aggressive decimation (2.0 m cell)
-    lite_pts, lite_idx = decimate_naive(positions, indices, cell=2.0)
-    print(f"  Lite:    {lite_pts.shape[0]:,} vertices, {lite_idx.shape[0]//3:,} faces")
-    write_glb_draco(OUT_DIR / "rorschach-lite.glb", lite_pts, lite_idx, quantization_bits=11, compression_level=10)
+    if bg_pos is not None:
+        bg_d_pts, bg_d_idx = decimate_naive(bg_pos, bg_idx, cell=0.5)
+        bg_l_pts, bg_l_idx = decimate_naive(bg_pos, bg_idx, cell=2.0)
+        primitives_desktop.append(("background", bg_d_pts, bg_d_idx))
+        primitives_lite.append(("background", bg_l_pts, bg_l_idx))
+
+    for i, (name, _, _) in enumerate(TARGETS):
+        tp, ti = target_data[i]
+        if tp is None:
+            continue
+        # Keep target meshes near-lossless (no aggressive decimation) for clean highlight
+        t_d_pts, t_d_idx = decimate_naive(tp, ti, cell=0.3)
+        t_l_pts, t_l_idx = decimate_naive(tp, ti, cell=1.0)
+        primitives_desktop.append((name, t_d_pts, t_d_idx))
+        primitives_lite.append((name, t_l_pts, t_l_idx))
+
+    print(f"  Desktop primitives: {[(n, p.shape[0]) for n, p, _ in primitives_desktop]}")
+    print(f"  Lite primitives:    {[(n, p.shape[0]) for n, p, _ in primitives_lite]}")
+
+    write_glb_draco_multi(OUT_DIR / "rorschach.glb", primitives_desktop, quantization_bits=14, compression_level=7)
+    write_glb_draco_multi(OUT_DIR / "rorschach-lite.glb", primitives_lite, quantization_bits=11, compression_level=10)
 
     print("\n[4/4] Done.")
     print(f"  {OUT_DIR}/rorschach.glb size: {(OUT_DIR/'rorschach.glb').stat().st_size:,} bytes")
@@ -355,6 +421,109 @@ def decimate_naive(positions, indices, cell=1.0):
     good = (faces[:, 0] != faces[:, 1]) & (faces[:, 1] != faces[:, 2]) & (faces[:, 0] != faces[:, 2])
     new_indices = faces[good].reshape(-1).astype(np.uint32)
     return new_positions, new_indices
+
+def write_glb_draco_multi(path, primitives, quantization_bits=14, compression_level=7):
+    """
+    Write a GLB with multiple named primitives, each with its own Draco buffer.
+    primitives: list of (name, positions np.float32(N,3), indices np.uint32(M,)).
+    Each primitive becomes an individually-loadable mesh under the scene root — the
+    client can then override materials or apply highlight effects per-name.
+    """
+    def pad4(b):
+        r = len(b) % 4
+        return b + (b"\x00" * (4 - r) if r else b"")
+
+    # 1) Draco-encode each primitive; concatenate their buffers.
+    draco_blobs = []
+    accessors = []
+    bufferviews = []
+    prim_defs = []
+    materials = []
+    nodes = []
+    offset = 0
+    for name, positions, indices in primitives:
+        blob = DracoPy.encode(
+            points=positions.astype(np.float32),
+            faces=indices.astype(np.uint32),
+            quantization_bits=quantization_bits,
+            compression_level=compression_level,
+        )
+        blob_padded = pad4(blob)
+        bv_idx = len(bufferviews)
+        bufferviews.append({"buffer": 0, "byteOffset": offset, "byteLength": len(blob)})
+        offset += len(blob_padded)
+
+        pos_min = positions.min(axis=0).tolist()
+        pos_max = positions.max(axis=0).tolist()
+        acc_pos = len(accessors)
+        accessors.append({
+            "componentType": 5126, "count": positions.shape[0],
+            "type": "VEC3", "min": pos_min, "max": pos_max,
+        })
+        acc_idx = len(accessors)
+        accessors.append({
+            "componentType": 5125, "count": indices.shape[0],
+            "type": "SCALAR",
+        })
+        is_target = name.startswith("obj_")
+        mat_idx = len(materials)
+        materials.append({
+            "name": f"mat_{name}",
+            "pbrMetallicRoughness": {
+                # Targets bekommen initial das gleiche off-white; Client tauscht Material.
+                "baseColorFactor": [0.905, 0.912, 0.933, 1.0] if not is_target else [0.95, 0.93, 0.90, 1.0],
+                "metallicFactor": 0.05,
+                "roughnessFactor": 0.85,
+            },
+        })
+        mesh_idx = len(prim_defs)
+        prim_defs.append({
+            "name": name,
+            "primitives": [{
+                "attributes": {"POSITION": acc_pos},
+                "indices": acc_idx,
+                "material": mat_idx,
+                "mode": 4,
+                "extensions": {
+                    "KHR_draco_mesh_compression": {
+                        "bufferView": bv_idx,
+                        "attributes": {"POSITION": 0},
+                    }
+                },
+            }],
+        })
+        nodes.append({"name": name, "mesh": mesh_idx})
+        draco_blobs.append(blob_padded)
+
+    bin_data = b"".join(draco_blobs)
+    gltf = {
+        "asset": {"generator": "immo-traeum build_twin.py multi", "version": "2.0"},
+        "extensionsUsed": ["KHR_draco_mesh_compression"],
+        "extensionsRequired": ["KHR_draco_mesh_compression"],
+        "scene": 0,
+        "scenes": [{"nodes": list(range(len(nodes)))}],
+        "nodes": nodes,
+        "meshes": prim_defs,
+        "materials": materials,
+        "buffers": [{"byteLength": len(bin_data)}],
+        "bufferViews": bufferviews,
+        "accessors": accessors,
+    }
+
+    json_bytes = json.dumps(gltf).encode("utf-8")
+    r = len(json_bytes) % 4
+    if r:
+        json_bytes += b" " * (4 - r)
+
+    total_len = 12 + 8 + len(json_bytes) + 8 + len(bin_data)
+    with open(path, "wb") as f:
+        f.write(struct.pack("<4sII", b"glTF", 2, total_len))
+        f.write(struct.pack("<II", len(json_bytes), 0x4E4F534A))
+        f.write(json_bytes)
+        f.write(struct.pack("<II", len(bin_data), 0x004E4942))
+        f.write(bin_data)
+    size = os.path.getsize(path)
+    print(f"  wrote {path}  ({size:,} bytes, {len(primitives)} prims)")
 
 def write_glb_draco(path, positions, indices, quantization_bits=14, compression_level=7):
     """

@@ -195,6 +195,9 @@ export default function FloatingChat() {
                 <Send size={14} className="text-navy"/>
               </button>
             </form>
+            <div className="px-3 pb-2 text-[10px] text-white/40 tracking-tight text-center">
+              KI-Assistent · keine sensiblen Daten eingeben · <a href="/datenschutz" className="link-gold" data-testid="chat-privacy-link">Datenschutz</a>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
