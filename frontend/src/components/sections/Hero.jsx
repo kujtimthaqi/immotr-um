@@ -10,7 +10,10 @@ export default function Hero() {
   const [mouse, setMouse] = useState({ x: 0, y: 0 });
   const [videoReady, setVideoReady] = useState(false);
   const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
-  const [blocked, setBlocked] = useState(false);
+  const [blocked, setBlocked] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return new URLSearchParams(window.location.search).get("forceplay") === "1";
+  });
   const reduced = usePrefersSaveMotion();
 
   const { scrollYProgress } = useScroll({ target: containerRef, offset: ["start start", "end start"] });
@@ -117,12 +120,14 @@ export default function Hero() {
             <source src={videoSrcWebm} type="video/webm" />
           </video>
         )}
+        {/* Absolute Play-Button nur ab xl (Desktop); < xl liegt der Play-Button
+            in-flow in der CTA-Zeile weiter unten (siehe dort) */}
         {blocked && (
           <button
             onClick={manualPlay}
             data-testid="hero-play"
             aria-label="Video abspielen"
-            className="absolute inset-0 m-auto w-16 h-16 rounded-full btn-gold flex items-center justify-center z-20"
+            className="hidden xl:flex absolute inset-0 m-auto w-16 h-16 rounded-full btn-gold items-center justify-center z-20"
             style={{ top: "auto", bottom: "22%" }}
           >
             <Play size={22} strokeWidth={1.5} className="text-navy translate-x-0.5"/>
@@ -235,6 +240,18 @@ export default function Hero() {
             >
               Verfügbare Objekte
             </a>
+            {/* Inline Play-Button — nur < xl, wenn Autoplay blockiert.
+                Auf xl+ liegt der Play-Button absolut mittig unten. */}
+            {blocked && (
+              <button
+                onClick={manualPlay}
+                data-testid="hero-play-inline"
+                aria-label="Video abspielen"
+                className="xl:hidden inline-flex items-center justify-center h-12 w-12 rounded-full btn-gold shrink-0"
+              >
+                <Play size={18} strokeWidth={1.5} className="text-navy translate-x-0.5"/>
+              </button>
+            )}
           </div>
 
           {/* Inline Stats-Bar (Tablet & kleines Laptop — 768…1279 px).

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useLocation } from "react-router-dom";
-import { Sun, Moon, Menu, X } from "lucide-react";
+import { Sun, Moon, Menu, X, Phone } from "lucide-react";
 import { useTheme } from "@/lib/useTheme";
 import Crest, { useCrestExists } from "@/components/Crest";
 
@@ -62,7 +62,7 @@ export default function Header() {
       style={{ WebkitBackdropFilter: (scrolled || menuOpen) ? "blur(20px)" : "blur(8px)" }}
     >
       <div className="max-w-[1400px] mx-auto px-4 md:px-10 h-16 md:h-20 flex items-center justify-between gap-3">
-        <Link to="/" data-testid="brand-link" className="group flex items-center gap-2 md:gap-3 min-w-0" onClick={() => setMenuOpen(false)}>
+        <Link to="/" data-testid="brand-link" className="group flex items-center gap-2 md:gap-3 shrink-0" onClick={() => setMenuOpen(false)}>
           <Crest variant="header" />
           {!hasCrest && (
             <svg width="24" height="24" viewBox="0 0 28 28" className="text-gold shrink-0 md:w-7 md:h-7">
@@ -70,11 +70,11 @@ export default function Header() {
               <circle cx="14" cy="14" r="1.6" fill="currentColor"/>
             </svg>
           )}
-          <div className="leading-tight min-w-0">
+          <div className="leading-tight">
             <div className="font-serif text-[15px] md:text-[18px] font-light tracking-tight text-white dark:text-white whitespace-nowrap">
               Immo Traeum <span className="text-gold">AG</span>
             </div>
-            <div className="text-[10px] uppercase tracking-[0.25em] text-gold-light/70 hidden xl:block whitespace-nowrap">Real Estate Curators</div>
+            <div className="text-[10px] uppercase tracking-[0.25em] text-gold-light/70 hidden 2xl:block whitespace-nowrap">Real Estate Curators</div>
           </div>
         </Link>
 
@@ -108,6 +108,25 @@ export default function Header() {
             className="hidden xl:inline-flex items-center h-9 px-4 rounded-full btn-gold text-[12px] font-medium uppercase tracking-[0.16em] whitespace-nowrap"
           >
             Gespräch anfragen
+          </a>
+          {/* Kompakter „Anfragen"-Pill für 400…1279 px */}
+          <a
+            href="#kontakt"
+            onClick={scrollTo("kontakt")}
+            data-testid="header-cta-compact"
+            className="hidden min-[400px]:inline-flex xl:hidden items-center h-9 px-3.5 rounded-full btn-gold text-[11px] font-medium uppercase tracking-[0.14em] whitespace-nowrap shrink-0"
+          >
+            Anfragen
+          </a>
+          {/* Icon-only Fallback < 400 px */}
+          <a
+            href="#kontakt"
+            onClick={scrollTo("kontakt")}
+            data-testid="header-cta-icon"
+            aria-label="Gespräch anfragen"
+            className="min-[400px]:hidden inline-flex items-center justify-center h-11 w-11 rounded-full btn-gold shrink-0"
+          >
+            <Phone size={16} strokeWidth={1.6}/>
           </a>
           <button
             onClick={() => setMenuOpen((v) => !v)}

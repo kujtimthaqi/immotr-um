@@ -370,3 +370,41 @@ Nur 2 Rental-Cards (Trischli + Reitbahn). Gerenstrasse 9 ist reference-only. Twi
 - Für 768–1279 px eine neue In-Flow-Variante der Stats-Bar unter den CTAs (`mt-10`), 32 px Abstand — keine Überlappung mehr.
 - Programmatische Verifikation an 7 Breakpoints (390, 768, 820, 1024, 1180, 1280, 1440): 0 horizontal Overflow, auch nach Scroll durch die ganze Seite; Header-Höhe konstant; Hamburger visibel < xl, Nav visibel ≥ xl.
 - Hamburger-Overlay hat solide RGBA(10,20,40,0.96) Hintergrund + `backdrop-blur-xl` → Kontrast klar erkennbar.
+
+## Update (Feb 2026 — CTA-Erreichbarkeit < xl & Hero Play-Button Fix)
+
+### A) Header „Anfragen"-CTA (< xl)
+- Neuer kompakter Gold-Pill „ANFRAGEN" neben Hamburger, sichtbar 400–1279 px (`hidden min-[400px]:inline-flex xl:hidden`).
+- Icon-only Fallback < 400 px: Phone-Icon-Button, 44×44 Touch-Target, `aria-label="Gespräch anfragen"`.
+- Alle drei CTAs (Icon / Kompakt / Desktop-Full) linken zu `#kontakt`.
+- Im Hamburger-Overlay bleibt der vollbreite Gold-Button „Gespräch anfragen" unten (bereits aus Vorwerk).
+- Kein Konflikt mit FloatingChat (fixed bottom-right).
+
+### B) Brand-Overflow-Fix (Nebeneffekt)
+- Brand-Link hatte `min-w-0` auf innerem Container → Text (`whitespace-nowrap`) überlief die Bounding-Box und kollidierte visuell mit der Nav bei 1280 px (auch wenn Bboxes nicht überlappten).
+- Fix: `min-w-0` entfernt, Link auf `shrink-0`. Text nimmt jetzt natürliche Breite.
+- „REAL ESTATE CURATORS" Sub-Line erst ab `2xl` (≥1536 px, `hidden 2xl:block`) — bei 1280 px zu wenig Platz.
+
+### C) Hero Play-Button
+- < xl: Inline dritter Button in der CTA-Zeile (48×48, Gold), 16 px Gap zu allen anderen Elementen via `gap-4` auf Flex-Wrap-Container.
+- ≥ xl: Behält absolute mittige Positionierung mit 22 % Bottom-Offset.
+- Testflag `?forceplay=1` in URL erzwingt `blocked=true` für Verifikation (opt-in, nur wenn Query-Param gesetzt).
+
+### D) Verifikation (10 Breakpoints)
+```
+Breakpoint | Header-Höhe | Header-CTA | Nav        | Play-Btn     | Overflow
+─────────────────────────────────────────────────────────────────────────────
+360 px     | 65 px      | Icon (44)  | Hamburger  | Inline       | keine
+390 px     | 65 px      | Icon (44)  | Hamburger  | Inline       | keine
+480 px     | 65 px      | Kompakt    | Hamburger  | Inline       | keine
+600 px     | 65 px      | Kompakt    | Hamburger  | Inline (wrap)| keine
+768 px     | 81 px      | Kompakt    | Hamburger  | Inline       | keine
+820 px     | 81 px      | Kompakt    | Hamburger  | Inline       | keine
+1024 px    | 81 px      | Kompakt    | Hamburger  | Inline       | keine
+1180 px    | 81 px      | Kompakt    | Hamburger  | Inline       | keine
+1280 px    | 81 px      | Full-Btn   | Desktop    | Absolute     | keine
+1440 px    | 81 px      | Full-Btn   | Desktop    | Absolute     | keine
+```
+- Min-Distanz Play-Button ↔ CTAs / Stats-Leiste / Chat-Button: **≥ 16 px** an allen 10 Breakpoints.
+- Brand-Text kollidiert nicht mehr mit Nav bei 1280 px (`nav.left = 240`, `brand-line1.right = 228`, Puffer 12 px + kein Text-Overflow mehr).
+- `yarn build` → Compiled successfully in 17.2 s.
