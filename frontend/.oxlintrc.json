@@ -1,0 +1,7 @@
+{
+  "ignorePatterns": [
+    "public/draco/**",
+    "build/**",
+    "node_modules/**"
+  ]
+}

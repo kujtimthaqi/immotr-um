@@ -189,3 +189,34 @@ Real Playwright, 4 Viewports × 2 Themes + DPR=2 Retina:
   - Single-Coordinator bestätigt: Dachwohnung paused, Lagerraum spielt
   - Kein horizontaler Overflow, 0 Console-Errors
 - **Prod-Build** `yarn build` → Compiled successfully.
+
+
+## Update 8 (Feb 2026 — Echter Digital Twin, statischer Bake, self-hosted Draco)
+
+### Architektur „einmal backen, statisch ausliefern"
+Live-Tileset-Streaming war zu schwer für eine Homepage (10 MB nur für tileset-Hierarchy, kaum b3dm). Umgestellt auf einmaliges Server-Bake.
+
+### `scripts/build_twin.py`
+Rekursiver Walk der swisstopo tileset.json-Hierarchie, filtert Kacheln deren `region` (WGS84 rad) den Rorschach-Ausschnitt (1.2 × 1.0 km um 47.4775 N / 9.4880 E) schneidet. Download der ausgewählten b3dm (69 Kacheln, 138 Gebäude, 1.49 M Vertices), Extraktion `RTC_CENTER` aus Feature-Table, Draco-Decode via DracoPy, node-Transform anwenden, WGS84 → ECEF → ENU-Rotation → Y-up-Meter. Vertices auf 0.5 m (Desktop) / 2.0 m (Mobile) Zell-Raster reduziert, degenerierte Faces entfernt, y-shift damit ground bei y=0. Draco-Re-Encode + minimales glTF (KHR_draco_mesh_compression als `extensionsRequired`, kein Fallback).
+
+### Grössen
+- `rorschach.glb` — 82'637 Vertices, 404'576 Faces → **817 KB** (Draco q=14, lvl=7)
+- `rorschach-lite.glb` — 50'419 Vertices, 276'404 Faces → **480 KB** (Draco q=11, lvl=10)
+- Draco decoder self-hosted `/draco/` (wasm 192 KB + wrapper 58 KB): 250 KB einmalig, cached
+
+### Frontend `RealDigitalTwin.jsx`
+`useLoader(GLTFLoader)` + `DRACOLoader.setDecoderPath('/draco/')` — **keine externe CDN-Abhängigkeit für Draco**, DSGVO/nDSG-sauber, gefixt nach Kundenwunsch. Uniform matte off-white Material, Blue-hour-Licht, Fog, Bodensee-Plane nördlich, Gold-Uferlinie, ACES. Objekte an echten swisstopo-Koordinaten (DB gepatcht): Trischli 47.4779/9.4886, Reitbahn 47.4755/9.4871, Geren 47.4781/9.4876. Marker: pulsierender Gold-Bodenring + Beam + Kugel-Spitze. Raycast von oben liefert Dachhöhe je Adresse. Desktop OrbitControls (limitiert), Mobile keine Controls; `touchAction: pan-y` auf canvas — Seite scrollt. Attribution „Gebäudedaten © swisstopo" unten links. Fallback bei GLB-Load-Fehler oder `webglcontextlost` → stylisierter Twin.
+
+### Verified (Playwright Chromium SwiftShader, 4 Sessions)
+
+| Viewport | Theme | GLB geladen | Gebäude sichtbar (Screenshot) | Attribution | External-CDN Draco | Console-Errors | Overlap | Overflow | Mobile-Scroll |
+|---|---|---|---|---|---|---|---|---|---|
+| Desktop 1440×900 | dark  | rorschach.glb 817 KB | ✅ viele | ✅ | 0 | 0 | 0 | ok | — |
+| Desktop 1440×900 | light | rorschach.glb 817 KB | ✅ viele | ✅ | 0 | 0 | 0 | ok | — |
+| iPhone 390×844  | dark  | rorschach-lite.glb 480 KB | ✅ viele | ✅ | 0 | 0 | 0 | ok | ok |
+| Android 412×915 | dark  | rorschach-lite.glb 480 KB | ✅ viele | ✅ | 0 | 0 | 0 | ok | ok |
+
+- Total Session-Transfer: Desktop ~1.1 MB (GLB + Draco WASM + wrapper), Mobile ~730 KB — weit unter Zielen (3 MB / 1.5 MB).
+- Draco-Anfragen gehen jetzt nur zum eigenen Origin `/draco/*.wasm` — 0 externe CDN-Requests für die 3D-Engine.
+- Google Fonts (Fraunces, Inter) noch von fonts.gstatic.com — kann bei Bedarf ebenfalls self-hosted werden (P2).
+- Prod-Build `yarn build` → Compiled successfully.

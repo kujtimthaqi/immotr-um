@@ -5,7 +5,7 @@ import { SectionHeader } from "@/components/sections/Leistungen";
 import { toast } from "sonner";
 import { useAutoPlayVideo, usePrefersSaveMotion } from "@/lib/useVideo";
 
-const DigitalTwin = lazy(() => import("@/components/DigitalTwin"));
+const DigitalTwin = lazy(() => import("@/components/RealDigitalTwin"));
 
 const STATUS = {
   available: { label: "Verfügbar", cls: "" },
