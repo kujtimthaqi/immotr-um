@@ -200,6 +200,53 @@ def download_orthophoto(zoom, out_size, out_path):
         "file": out_path.name,
     }
 
+
+def bake_water_mask(ortho_path, mask_path, out_size):
+    """
+    Wassermaske aus dem Orthofoto extrahieren via HSV/RGB-Schwelle + Morphologie.
+    Bodensee ist im Norden: dunkles Blaugrün, wenig Textur. Eingabe = ortho.webp,
+    Ausgabe = 1-Kanal-PNG passend zur Ortho-UV.
+    """
+    from PIL import Image
+    from scipy.ndimage import binary_closing, binary_opening, gaussian_filter
+    import subprocess
+    img = Image.open(ortho_path).convert("RGB")
+    arr = np.array(img).astype(np.float32)
+    h, w = arr.shape[:2]
+    r, g, b = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
+    v = (r + g + b) / 3.0
+    # Bodensee: R < 100, B ≥ R, insgesamt dunkel; on-shore-Grün deutlich heller.
+    mask = (v < 95) & (b > r * 0.9) & (b + g > r * 1.5) & (r < 100)
+    # Nördlich bevorzugen (Bodensee liegt nördlich von Rorschach) — obere 50 %.
+    mask_north = np.zeros_like(mask, dtype=bool)
+    mask_north[:int(h * 0.50), :] = True
+    mask = mask & mask_north
+    # Morphologie: schliessen (Löcher füllen), öffnen (Rauschen entfernen)
+    mask = binary_closing(mask, iterations=3)
+    mask = binary_opening(mask, iterations=2)
+    # Weicher Rand (Gaussian Blur, dann skaliert)
+    soft = gaussian_filter(mask.astype(np.float32), sigma=2.0)
+    soft = np.clip(soft * 1.15, 0, 1)  # slight boost
+    # Resize to target square
+    m_img = Image.fromarray((soft * 255).astype(np.uint8), "L")
+    tw, th = w, h
+    aspect = th / tw
+    target_w = out_size
+    target_h = max(1, int(round(out_size * aspect)))
+    if target_h > out_size:
+        target_h = out_size
+        target_w = max(1, int(round(out_size / aspect)))
+    m_img = m_img.resize((target_w, target_h), Image.LANCZOS)
+    tmp = mask_path.with_suffix(".tmp.png")
+    m_img.save(tmp, "PNG", optimize=True)
+    # Convert to WebP lossless (single channel packed as RGB)
+    subprocess.run(["cwebp", "-lossless", "-m", "6", str(tmp), "-o", str(mask_path)],
+                   check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    tmp.unlink()
+    print(f"  → {mask_path.name}: {target_w}x{target_h}, {mask_path.stat().st_size/1024:.0f} KB, "
+          f"water={100*mask.mean():.1f}%")
+    return {"file": mask_path.name, "size": [target_w, target_h]}
+
 # --- Tileset walker ---
 def region_intersects(region):
     """region = [west, south, east, north, min_h, max_h] in radians/meters."""
@@ -771,6 +818,19 @@ def main():
         print(f"  ⚠️ Ortho bake failed: {ex}")
         ortho_desktop = ortho_mobile = None
 
+    # Water mask
+    water_desktop = water_mobile = None
+    if ortho_desktop:
+        try:
+            water_desktop = bake_water_mask(OUT_DIR / "ground.webp", OUT_DIR / "water-mask.webp", 1024)
+        except Exception as ex:
+            print(f"  ⚠️ Water mask desktop failed: {ex}")
+    if ortho_mobile:
+        try:
+            water_mobile = bake_water_mask(OUT_DIR / "ground-lite.webp", OUT_DIR / "water-mask-lite.webp", 512)
+        except Exception as ex:
+            print(f"  ⚠️ Water mask mobile failed: {ex}")
+
     # twin-meta.json — Frontend-Konfig für Ground-Plane + Landmarks
     landmarks = [
         {"name": "Hafen Rorschach",            "lat": 47.47936, "lon": 9.48865, "kind": "harbor"},
@@ -790,6 +850,10 @@ def main():
         "ground": {
             "desktop": ortho_desktop,
             "mobile": ortho_mobile,
+        },
+        "water_mask": {
+            "desktop": water_desktop,
+            "mobile": water_mobile,
         },
         "landmarks": landmarks_enu,
     }

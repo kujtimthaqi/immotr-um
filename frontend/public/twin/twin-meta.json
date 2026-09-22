@@ -32,6 +32,22 @@
       "file": "ground-lite.webp"
     }
   },
+  "water_mask": {
+    "desktop": {
+      "file": "water-mask.webp",
+      "size": [
+        1024,
+        796
+      ]
+    },
+    "mobile": {
+      "file": "water-mask-lite.webp",
+      "size": [
+        512,
+        410
+      ]
+    }
+  },
   "landmarks": [
     {
       "name": "Hafen Rorschach",

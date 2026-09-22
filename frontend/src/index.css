@@ -336,3 +336,52 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   outline-offset: 2px;
   border-radius: 2px;
 }
+
+/* Twin — Landmark & Object pills (drei <Html> in-canvas) */
+.landmark-pill {
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(10, 20, 40, 0.55);
+  border: 1px solid rgba(201, 169, 110, 0.28);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  padding: 4px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+  transform: translate(-50%, -100%);
+  user-select: none;
+}
+.object-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px 5px 8px;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: #0A1428;
+  background: linear-gradient(135deg, #E6D3A8 0%, #C9A96E 100%);
+  border-radius: 999px;
+  border: 0;
+  cursor: pointer;
+  transform: translate(-50%, -100%);
+  box-shadow: 0 4px 14px rgba(201, 169, 110, 0.35), 0 0 0 1px rgba(201, 169, 110, 0.6);
+  white-space: nowrap;
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+.object-pill:hover {
+  transform: translate(-50%, -100%) scale(1.03);
+  box-shadow: 0 6px 20px rgba(201, 169, 110, 0.5), 0 0 0 1px rgba(230, 211, 168, 0.9);
+}
+.object-pill .dot {
+  width: 8px; height: 8px; border-radius: 999px;
+  background: #0A1428;
+  box-shadow: 0 0 0 2px rgba(10, 20, 40, 0.35);
+}
+.object-pill .label { display: inline-flex; flex-direction: column; align-items: flex-start; line-height: 1.1; }
+.object-pill .title { font-weight: 600; }
+.object-pill .meta { font-size: 9px; opacity: 0.75; letter-spacing: 0.04em; }

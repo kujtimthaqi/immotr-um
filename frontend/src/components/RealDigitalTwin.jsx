@@ -15,6 +15,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree, useLoader } from "@react-three/fiber";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
+import { Html } from "@react-three/drei";
 import * as THREE from "three";
 import { OrbitControls as ThreeOrbitControls } from "three-stdlib";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
@@ -307,18 +308,51 @@ function LimitedControls({ enabled, active }) {
 // Detail: schräg von SÜDEN (positives Z im Y-up-System = Süd), Elevation ~32°,
 // Blick nach NORDEN (Richtung Bodensee), Zielgebäude ~22 % der Canvas-Höhe.
 // Übersicht: orbitaler Sweep mit Elevation ~40°.
-function CameraRig({ target, mobile }) {
+// ---- Auto-Orbit + Cinematic Fly-In Camera Rig ----
+function CameraRig({ target, mobile, inView }) {
   const { camera } = useThree();
   const desired = useRef(new THREE.Vector3(400, 380, 400));
   const look = useRef(new THREE.Vector3(0, 30, 0));
   const angle = useRef(mobile ? -Math.PI / 3.5 : Math.PI / 4);
   const prevTarget = useRef(null);
+  const flyInStart = useRef(null);
+  const lastInteraction = useRef(0);
+  const reducedMotion = useMemo(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  }, []);
+
+  // Trigger fly-in when section first becomes visible
+  useEffect(() => {
+    if (inView && flyInStart.current === null && !reducedMotion) {
+      flyInStart.current = performance.now();
+    }
+  }, [inView, reducedMotion]);
+
+  // Track user interactions to pause orbit
+  useEffect(() => {
+    const bump = () => { lastInteraction.current = performance.now(); };
+    window.addEventListener("pointerdown", bump);
+    window.addEventListener("wheel", bump, { passive: true });
+    window.addEventListener("touchstart", bump, { passive: true });
+    return () => {
+      window.removeEventListener("pointerdown", bump);
+      window.removeEventListener("wheel", bump);
+      window.removeEventListener("touchstart", bump);
+    };
+  }, []);
 
   useFrame((_, dt) => {
-    // Detect target transition to invalidate old inertia
     const t = target ? `${target[0].toFixed(1)},${target[1].toFixed(1)},${target[2].toFixed(1)}` : null;
     const changed = t !== prevTarget.current;
     prevTarget.current = t;
+
+    // Fly-in: 2.5 s ease-in-out-cubic from high-north over the lake to overview position
+    let flyInProgress = null;
+    if (flyInStart.current !== null && !target) {
+      const elapsed = (performance.now() - flyInStart.current) / 1000;
+      flyInProgress = elapsed < 2.5 ? Math.min(elapsed / 2.5, 1.0) : null;
+    }
 
     if (target) {
       const [x, y, z] = target;
@@ -327,86 +361,115 @@ function CameraRig({ target, mobile }) {
       const camH = groundDist * Math.tan(elevRad);
       desired.current.set(x, y + camH, z + groundDist);
       look.current.set(x, y * 0.5 + 12, z - 25);
+    } else if (flyInProgress !== null) {
+      // Fly-in: from (0, 1600, -1500) [hoch über Bodensee, Norden] → orbital-Startposition
+      const start = new THREE.Vector3(0, 1600, -1500);
+      // Overview orbital target position
+      const r = mobile ? 460 : 500;
+      const camY = r * Math.tan(38 * DEG);
+      const end = new THREE.Vector3(Math.cos(angle.current) * r, camY, Math.sin(angle.current) * r);
+      // easeInOutCubic
+      const p = flyInProgress;
+      const ease = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+      desired.current.lerpVectors(start, end, ease);
+      look.current.set(0, 30, 0);
     } else {
-      angle.current += dt * 0.05;
+      // Auto-orbit — only when no user interaction in last 8 s and not reduced-motion
+      const idleMs = performance.now() - lastInteraction.current;
+      const orbitActive = !reducedMotion && idleMs > 8000;
+      if (orbitActive) {
+        angle.current += dt * (1 * Math.PI / 180); // 1°/s
+      }
       const r = mobile ? 460 : 500;
       const camY = r * Math.tan(38 * DEG);
       desired.current.set(Math.cos(angle.current) * r, camY, Math.sin(angle.current) * r);
       look.current.set(0, 30, 0);
     }
-    // Snap start on transition to make detail-view arrive quickly
+
+    // Snap start on target transition
     if (changed && target) {
-      // start from a slightly retracted position to keep motion smooth (~0.6s)
       const [x, y, z] = target;
       camera.position.set(x + 30, y + 200, z + 240);
     }
-    const alpha = target ? 0.14 : 0.05;
+    const alpha = target ? 0.14 : (flyInProgress !== null ? 0.35 : 0.05);
     camera.position.lerp(desired.current, alpha);
     camera.lookAt(look.current);
     window.__twinDebug = {
       cam: [+camera.position.x.toFixed(1), +camera.position.y.toFixed(1), +camera.position.z.toFixed(1)],
       target,
       desired: [+desired.current.x.toFixed(1), +desired.current.y.toFixed(1), +desired.current.z.toFixed(1)],
+      flyIn: flyInProgress,
     };
   });
   return null;
 }
 
-function BodenseePlane({ mobile }) {
-  // Nördlich vom Ufer (Z=−50 ist grobe Uferlinie im ENU). Wasser reicht bis −2500 m.
-  return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.1, -1300]}>
-      <planeGeometry args={[3400, 2500]} />
-      <meshStandardMaterial
-        color="#0d1e38"
-        metalness={mobile ? 0.55 : 0.85}
-        roughness={mobile ? 0.42 : 0.22}
-        emissive="#0a1830"
-        emissiveIntensity={0.28}
-        transparent
-        opacity={0.94}
-      />
-    </mesh>
-  );
-}
-
-function ShoreLine() {
-  const geo = useMemo(() => {
-    const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.Float32BufferAttribute([-700, 0.5, -70, 700, 0.5, -70], 3));
-    return g;
-  }, []);
-  return <line geometry={geo}><lineBasicMaterial color="#C9A96E" transparent opacity={0.35} /></line>;
-}
-
-// ---- Orthophoto Ground (SWISSIMAGE) ----
-function OrthoGround({ meta, mobile }) {
+// ---- Orthophoto Ground with Water Mask (SWISSIMAGE) ----
+function OrthoGround({ meta, mobile, dayMode }) {
   const info = meta?.ground?.[mobile ? "mobile" : "desktop"];
-  const url = info?.file ? `/twin/${info.file}` : null;
-  const tex = useLoader(THREE.TextureLoader, url || "/twin/ground-lite.webp");
+  const waterInfo = meta?.water_mask?.[mobile ? "mobile" : "desktop"];
+  const tex = useLoader(THREE.TextureLoader, info?.file ? `/twin/${info.file}` : "/twin/ground-lite.webp");
+  const maskTex = useLoader(THREE.TextureLoader, waterInfo?.file ? `/twin/${waterInfo.file}` : `/twin/${info?.file || "ground-lite.webp"}`);
+  const materialRef = useRef();
+  const { camera } = useThree();
+
   useEffect(() => {
-    if (!tex) return;
-    tex.colorSpace = THREE.SRGBColorSpace;
-    tex.anisotropy = 16;
-    tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
-    tex.needsUpdate = true;
-  }, [tex]);
+    if (tex) {
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = 16;
+      tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+      tex.needsUpdate = true;
+    }
+    if (maskTex) {
+      maskTex.colorSpace = THREE.NoColorSpace;
+      maskTex.wrapS = maskTex.wrapT = THREE.ClampToEdgeWrapping;
+      maskTex.minFilter = THREE.LinearFilter;
+      maskTex.magFilter = THREE.LinearFilter;
+      maskTex.needsUpdate = true;
+    }
+  }, [tex, maskTex]);
 
   const dims = useMemo(() => {
     if (!info) return null;
     const { nw_lat, nw_lon, se_lat, se_lon } = info.bounds;
-    const DEG = Math.PI / 180;
-    const CENTER_LAT = meta.center.lat;
-    const CENTER_LON = meta.center.lon;
+    const DEG_LOCAL = Math.PI / 180;
+    const CLAT = meta.center.lat;
+    const CLON = meta.center.lon;
     const to_enu = (lat, lon) => {
-      const dLat = (lat - CENTER_LAT) * 111320;
-      const dLon = (lon - CENTER_LON) * 111320 * Math.cos(CENTER_LAT * DEG);
+      const dLat = (lat - CLAT) * 111320;
+      const dLon = (lon - CLON) * 111320 * Math.cos(CLAT * DEG_LOCAL);
       return [dLon, -dLat];
     };
     const [xW, zN] = to_enu(nw_lat, nw_lon);
     const [xE, zS] = to_enu(se_lat, se_lon);
     return { xW, xE, zN, zS };
   }, [info, meta]);
+
+  const uniforms = useMemo(() => ({
+    uOrtho: { value: tex },
+    uWaterMask: { value: maskTex },
+    uTime: { value: 0 },
+    uCameraPos: { value: new THREE.Vector3() },
+    uOrthoTint: { value: new THREE.Color("#98a5b7") },
+    uOrthoBrightness: { value: 0.75 },
+    uWaterColorDeep: { value: new THREE.Color("#050e22") },
+    uWaterColorSurface: { value: new THREE.Color("#0c1e3e") },
+    uHorizonColor: { value: new THREE.Color("#c9a17a") },
+    uDayMix: { value: 0.0 },
+    fogColor: { value: new THREE.Color("#0d1a34") },
+    fogNear: { value: 900 },
+    fogFar: { value: 3400 },
+  }), [tex, maskTex]);
+
+  useFrame((state, dt) => {
+    if (!materialRef.current) return;
+    const u = materialRef.current.uniforms;
+    u.uTime.value += dt;
+    u.uCameraPos.value.copy(camera.position);
+    // Day mode lerp
+    const target = dayMode ? 1.0 : 0.0;
+    u.uDayMix.value += (target - u.uDayMix.value) * Math.min(1, dt * 2.0);
+  });
 
   if (!info || !dims) return null;
   const width = dims.xE - dims.xW;
@@ -415,16 +478,179 @@ function OrthoGround({ meta, mobile }) {
   const cz = (dims.zS + dims.zN) / 2;
 
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[cx, -0.35, cz]} receiveShadow={!mobile}>
-      <planeGeometry args={[width, depth]} />
-      <meshStandardMaterial
-        map={tex}
-        roughness={0.94}
-        metalness={0.02}
-        color="#8798b0"
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[cx, -0.15, cz]}>
+      <planeGeometry args={[width, depth, 1, 1]} />
+      <shaderMaterial
+        ref={materialRef}
+        uniforms={uniforms}
+        fog={true}
+        vertexShader={GROUND_VERT}
+        fragmentShader={GROUND_FRAG}
       />
     </mesh>
   );
+}
+
+// GLSL for ortho + water shader (fog-aware)
+const GROUND_VERT = `
+  varying vec2 vUvG;
+  varying vec3 vWorldPosG;
+  #include <fog_pars_vertex>
+  void main() {
+    vUvG = uv;
+    vec4 wp = modelMatrix * vec4(position, 1.0);
+    vWorldPosG = wp.xyz;
+    vec4 mvp = viewMatrix * wp;
+    gl_Position = projectionMatrix * mvp;
+    #include <fog_vertex>
+  }
+`;
+
+const GROUND_FRAG = `
+  uniform sampler2D uOrtho;
+  uniform sampler2D uWaterMask;
+  uniform float uTime;
+  uniform vec3 uCameraPos;
+  uniform vec3 uOrthoTint;
+  uniform float uOrthoBrightness;
+  uniform vec3 uWaterColorDeep;
+  uniform vec3 uWaterColorSurface;
+  uniform vec3 uHorizonColor;
+  uniform float uDayMix;
+  varying vec2 vUvG;
+  varying vec3 vWorldPosG;
+  #include <fog_pars_fragment>
+
+  float hash21(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+  float valueNoise(vec2 p){
+    vec2 i = floor(p); vec2 f = fract(p);
+    float a = hash21(i);
+    float b = hash21(i + vec2(1.0, 0.0));
+    float c = hash21(i + vec2(0.0, 1.0));
+    float d = hash21(i + vec2(1.0, 1.0));
+    vec2 u = f*f*(3.0-2.0*f);
+    return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+  }
+
+  void main() {
+    // Ortho sample
+    vec3 orthoRaw = texture2D(uOrtho, vUvG).rgb;
+    vec3 orthoTinted = orthoRaw * uOrthoTint * uOrthoBrightness;
+    // Day mode: ortho closer to raw, less tint, brighter
+    vec3 orthoDay = orthoRaw * vec3(1.05, 1.02, 0.98) * 1.1;
+    vec3 ortho = mix(orthoTinted, orthoDay, uDayMix);
+
+    // Water mask (smoothed)
+    float mask = texture2D(uWaterMask, vUvG).r;
+    mask = smoothstep(0.35, 0.65, mask);
+
+    // Water: two scrolling noise layers → animated ripples
+    vec2 wp = vWorldPosG.xz;
+    float n1 = valueNoise(wp * 0.08 + vec2(uTime * 0.12, uTime * 0.09));
+    float n2 = valueNoise(wp * 0.05 - vec2(uTime * 0.07, uTime * 0.11));
+    float ripple = (n1 + n2 - 1.0);  // -1..1
+
+    // Fresnel toward camera
+    vec3 toCam = normalize(uCameraPos - vWorldPosG);
+    float fres = pow(1.0 - clamp(toCam.y, 0.0, 1.0), 3.0);
+
+    vec3 waterCol = mix(uWaterColorDeep, uWaterColorSurface, 0.5 + ripple * 0.35);
+    waterCol = mix(waterCol, uHorizonColor, fres * 0.42);
+    // Day water brighter, teal-shift
+    vec3 waterDay = mix(vec3(0.06, 0.22, 0.36), vec3(0.14, 0.34, 0.48), 0.5 + ripple * 0.3);
+    waterDay = mix(waterDay, vec3(0.85, 0.75, 0.55), fres * 0.30);
+    waterCol = mix(waterCol, waterDay, uDayMix);
+
+    vec3 color = mix(ortho, waterCol, mask);
+
+    gl_FragColor = vec4(color, 1.0);
+    #include <fog_fragment>
+  }
+`;
+
+// Endloses Horizont-Wasser jenseits der Ortho-Plane (Norden)
+function HorizonWater({ mobile, dayMode }) {
+  const materialRef = useRef();
+  const { camera } = useThree();
+  const uniforms = useMemo(() => ({
+    uTime: { value: 0 },
+    uCameraPos: { value: new THREE.Vector3() },
+    uWaterColorDeep: { value: new THREE.Color("#050e22") },
+    uWaterColorSurface: { value: new THREE.Color("#0c1e3e") },
+    uHorizonColor: { value: new THREE.Color("#c9a17a") },
+    uDayMix: { value: 0.0 },
+    fogColor: { value: new THREE.Color("#0d1a34") },
+    fogNear: { value: 900 },
+    fogFar: { value: 3400 },
+  }), []);
+  useFrame((_, dt) => {
+    if (!materialRef.current) return;
+    const u = materialRef.current.uniforms;
+    u.uTime.value += dt;
+    u.uCameraPos.value.copy(camera.position);
+    const t = dayMode ? 1.0 : 0.0;
+    u.uDayMix.value += (t - u.uDayMix.value) * Math.min(1, dt * 2.0);
+  });
+  return (
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.25, -2200]}>
+      <planeGeometry args={[6000, 3000, 1, 1]} />
+      <shaderMaterial
+        ref={materialRef}
+        uniforms={uniforms}
+        fog={true}
+        vertexShader={GROUND_VERT}
+        fragmentShader={HORIZON_FRAG}
+      />
+    </mesh>
+  );
+}
+
+const HORIZON_FRAG = `
+  uniform float uTime;
+  uniform vec3 uCameraPos;
+  uniform vec3 uWaterColorDeep;
+  uniform vec3 uWaterColorSurface;
+  uniform vec3 uHorizonColor;
+  uniform float uDayMix;
+  varying vec2 vUvG;
+  varying vec3 vWorldPosG;
+  #include <fog_pars_fragment>
+
+  float hash21(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+  float valueNoise(vec2 p){
+    vec2 i = floor(p); vec2 f = fract(p);
+    float a = hash21(i);
+    float b = hash21(i + vec2(1.0, 0.0));
+    float c = hash21(i + vec2(0.0, 1.0));
+    float d = hash21(i + vec2(1.0, 1.0));
+    vec2 u = f*f*(3.0-2.0*f);
+    return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+  }
+
+  void main() {
+    vec2 wp = vWorldPosG.xz;
+    float n1 = valueNoise(wp * 0.03 + vec2(uTime * 0.06, uTime * 0.05));
+    float n2 = valueNoise(wp * 0.015 - vec2(uTime * 0.03, uTime * 0.04));
+    float ripple = (n1 + n2 - 1.0);
+    vec3 toCam = normalize(uCameraPos - vWorldPosG);
+    float fres = pow(1.0 - clamp(toCam.y, 0.0, 1.0), 3.0);
+    vec3 waterCol = mix(uWaterColorDeep, uWaterColorSurface, 0.5 + ripple * 0.3);
+    waterCol = mix(waterCol, uHorizonColor, fres * 0.4);
+    vec3 waterDay = mix(vec3(0.06, 0.22, 0.36), vec3(0.14, 0.34, 0.48), 0.5 + ripple * 0.28);
+    waterDay = mix(waterDay, vec3(0.85, 0.75, 0.55), fres * 0.30);
+    waterCol = mix(waterCol, waterDay, uDayMix);
+    gl_FragColor = vec4(waterCol, 1.0);
+    #include <fog_fragment>
+  }
+`;
+
+function ShoreLine() {
+  const geo = useMemo(() => {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute([-700, 0.5, -70, 700, 0.5, -70], 3));
+    return g;
+  }, []);
+  return null; // Uferlinie kommt aus der Wassermaske selbst — kein zusätzlicher Marker mehr.
 }
 
 function Ground() {
@@ -437,17 +663,24 @@ function Ground() {
   );
 }
 
-function SkyDome() {
-  // Vertex-Color-Gradient von Navy oben zu Champagner am Horizont
+function SkyDome({ dayMode }) {
+  // Vertex-Color-Gradient: Abend Navy → Champagner, Tag Skyblau → weiss/heller
   const geo = useMemo(() => {
     const g = new THREE.SphereGeometry(3000, 32, 24, 0, Math.PI * 2, 0, Math.PI * 0.55);
     const colors = [];
     const pos = g.attributes.position;
-    const topCol = new THREE.Color("#050c1e");
-    const midCol = new THREE.Color("#1a2a4a");
-    const horCol = new THREE.Color("#c9a17a");
+    const nightTop = new THREE.Color("#050c1e");
+    const nightMid = new THREE.Color("#1a2a4a");
+    const nightHor = new THREE.Color("#c9a17a");
+    const dayTop = new THREE.Color("#3b6ca0");
+    const dayMid = new THREE.Color("#94b3d0");
+    const dayHor = new THREE.Color("#e8dcc0");
+    const isDay = !!dayMode;
+    const topCol = isDay ? dayTop : nightTop;
+    const midCol = isDay ? dayMid : nightMid;
+    const horCol = isDay ? dayHor : nightHor;
     for (let i = 0; i < pos.count; i++) {
-      const y = pos.getY(i) / 3000; // 0..1 top
+      const y = pos.getY(i) / 3000;
       let c;
       if (y > 0.55) c = topCol.clone();
       else if (y > 0.15) c = midCol.clone().lerp(topCol, (y - 0.15) / 0.4);
@@ -456,7 +689,7 @@ function SkyDome() {
     }
     g.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
     return g;
-  }, []);
+  }, [dayMode]);
   return (
     <mesh geometry={geo} rotation={[0, 0, 0]}>
       <meshBasicMaterial vertexColors side={THREE.BackSide} depthWrite={false} fog={false} />
@@ -470,9 +703,22 @@ export default function RealDigitalTwin({ highlightIndex, selectedIndex, onSelec
   const [glbFailed, setGlbFailed] = useState(false);
   const [gltfState, setGltfState] = useState(null);
   const [meta, setMeta] = useState(null);
+  const [dayMode, setDayMode] = useState(false);
+  const [inView, setInView] = useState(false);
+  const containerRef = useRef(null);
 
   useEffect(() => {
     fetch("/twin/twin-meta.json").then(r => r.json()).then(setMeta).catch(() => setMeta(null));
+  }, []);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) setInView(true); },
+      { threshold: 0.25 }
+    );
+    obs.observe(containerRef.current);
+    return () => obs.disconnect();
   }, []);
 
   const objects = useMemo(
@@ -500,7 +746,7 @@ export default function RealDigitalTwin({ highlightIndex, selectedIndex, onSelec
   const selectedLabel = selectedIndex != null ? objects[selectedIndex] : null;
 
   return (
-    <div className="relative w-full h-full" data-testid="real-digital-twin" data-selected-index={selectedIndex ?? ""}>
+    <div className="relative w-full h-full" data-testid="real-digital-twin" data-selected-index={selectedIndex ?? ""} ref={containerRef}>
       <Canvas
         shadows={false}
         dpr={mobile ? [1, 1.25] : [1, 1.5]}
@@ -521,20 +767,17 @@ export default function RealDigitalTwin({ highlightIndex, selectedIndex, onSelec
         }}
         style={{ touchAction: mobile ? "pan-y" : "none" }}
       >
-        <fog attach="fog" args={["#0d1a34", 900, 3400]} />
-        <ambientLight intensity={0.48} />
-        {/* Warme Abendsonne aus Westen (tief) */}
-        <directionalLight position={[-450, 260, 120]} intensity={1.15} color="#f5c98a" />
-        {/* Kühles Fill von der See-Seite (Nord) */}
-        <directionalLight position={[80, 320, -400]} intensity={0.42} color="#5e7ba8" />
+        <fog attach="fog" args={[dayMode ? "#a9c1d8" : "#0d1a34", 900, 3400]} />
+        <ambientLight intensity={dayMode ? 0.7 : 0.48} />
+        <directionalLight position={dayMode ? [200, 900, 100] : [-450, 260, 120]} intensity={dayMode ? 1.35 : 1.15} color={dayMode ? "#fffaf0" : "#f5c98a"} />
+        <directionalLight position={[80, 320, -400]} intensity={dayMode ? 0.28 : 0.42} color={dayMode ? "#d0e0f0" : "#5e7ba8"} />
 
-        <SkyDome />
+        <SkyDome dayMode={dayMode} />
         <Ground />
         <Suspense fallback={null}>
-          {meta && <OrthoGround meta={meta} mobile={mobile} />}
+          {meta && <OrthoGround meta={meta} mobile={mobile} dayMode={dayMode} />}
         </Suspense>
-        <BodenseePlane mobile={mobile} />
-        <ShoreLine />
+        <HorizonWater mobile={mobile} dayMode={dayMode} />
 
         <Suspense fallback={null}>
           <ErrorBoundary onError={() => setGlbFailed(true)}>
@@ -553,7 +796,26 @@ export default function RealDigitalTwin({ highlightIndex, selectedIndex, onSelec
           />
         ))}
 
-        <CameraRig target={target} mobile={mobile} />
+        {/* Landmark-Labels — Glass-Pills via drei <Html> */}
+        {meta?.landmarks && !selectedLabel && (
+          <LandmarksInCanvas
+            landmarks={meta.landmarks}
+            mobile={mobile}
+            gltfScene={gltfState?.scene}
+          />
+        )}
+
+        {/* Objekt-Pills — Name + Status via drei <Html> */}
+        {!selectedLabel && objects.map((o, i) => (
+          <ObjectPillInCanvas
+            key={o.id}
+            position={positions[i]}
+            object={o}
+            onClick={() => onSelect?.(i)}
+          />
+        ))}
+
+        <CameraRig target={target} mobile={mobile} inView={inView} />
         <LimitedControls enabled={!mobile} active={target == null} />
 
         <EffectComposer disableNormalPass>
@@ -565,11 +827,6 @@ export default function RealDigitalTwin({ highlightIndex, selectedIndex, onSelec
         </EffectComposer>
       </Canvas>
 
-      {/* Landmark-Labels (HTML-Overlay) */}
-      {meta?.landmarks && !selectedLabel && (
-        <LandmarkLabels landmarks={meta.landmarks} gltfScene={gltfState?.scene} mobile={mobile} />
-      )}
-
       {/* Kompass */}
       <div className="absolute top-3 left-3 pointer-events-none select-none" data-testid="twin-compass">
         <svg width={mobile ? 36 : 44} height={mobile ? 36 : 44} viewBox="0 0 44 44">
@@ -579,6 +836,19 @@ export default function RealDigitalTwin({ highlightIndex, selectedIndex, onSelec
           <text x="22" y="12" fill="#E6D3A8" fontSize="7" textAnchor="middle" fontFamily="Inter, sans-serif" fontWeight="600">N</text>
         </svg>
       </div>
+
+      {/* Tag/Abend-Toggle */}
+      {!selectedLabel && (
+        <button
+          onClick={() => setDayMode((v) => !v)}
+          data-testid="twin-day-toggle"
+          aria-label={dayMode ? "Abendmodus" : "Tagmodus"}
+          className="absolute top-3 right-3 glass px-3 h-9 rounded-full flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-gold-light pointer-events-auto"
+        >
+          <span className="text-gold">{dayMode ? "☀︎" : "☾"}</span>
+          <span>{dayMode ? "Tag" : "Abend"}</span>
+        </button>
+      )}
 
       {/* Selection label + Übersicht-Button */}
       {selectedLabel && (
@@ -610,12 +880,61 @@ export default function RealDigitalTwin({ highlightIndex, selectedIndex, onSelec
   );
 }
 
-// ---- Landmark Labels (HTML overlay, projected via camera each frame) ----
-function LandmarkLabels({ landmarks, gltfScene, mobile }) {
-  const [screenPositions, setScreenPositions] = useState([]);
-  const { camera, size } = useThree ? { camera: null, size: null } : { camera: null, size: null };
-  // We need to hook useFrame in the Canvas context; render as a Canvas child instead.
-  return null; // Simplification — labels are handled inside canvas via <Html> in a future pass.
+// ---- Landmark labels in canvas (drei <Html>) ----
+function LandmarksInCanvas({ landmarks, mobile, gltfScene }) {
+  const list = useMemo(() => {
+    // Priorität: Landmarken mit "harbor", "landmark" höher; auf Mobile max 4
+    const p = { harbor: 1, landmark: 2, transport: 3, path: 4, city: 5 };
+    const sorted = [...landmarks].sort((a, b) => (p[a.kind] ?? 9) - (p[b.kind] ?? 9));
+    return mobile ? sorted.slice(0, 4) : sorted.slice(0, 6);
+  }, [landmarks, mobile]);
+  return (
+    <group>
+      {list.map((l, i) => {
+        const y = gltfScene ? raycastYAt(gltfScene, l.x, l.z) : 5;
+        return (
+          <Html
+            key={l.name}
+            position={[l.x, Math.max(y, 3) + 8, l.z]}
+            center
+            distanceFactor={mobile ? 260 : 220}
+            occlude
+            zIndexRange={[10, 0]}
+            style={{ pointerEvents: "none" }}
+          >
+            <div className="landmark-pill" data-testid={`landmark-${i}`}>
+              {l.name}
+            </div>
+          </Html>
+        );
+      })}
+    </group>
+  );
+}
+
+function ObjectPillInCanvas({ position, object, onClick }) {
+  if (!position || !object) return null;
+  const price = object.price_chf
+    ? `CHF ${object.price_chf.toLocaleString("de-CH")}`
+    : object.rent_chf ? `CHF ${object.rent_chf.toLocaleString("de-CH")}/Mt.` : "";
+  return (
+    <Html
+      position={[position[0], (position[1] || 0) + 18, position[2]]}
+      center
+      distanceFactor={200}
+      occlude
+      zIndexRange={[20, 10]}
+      style={{ pointerEvents: "auto" }}
+    >
+      <button className="object-pill" data-testid={`object-pill-${object.id}`} onClick={(e) => { e.stopPropagation(); onClick?.(); }}>
+        <span className="dot"/>
+        <span className="label">
+          <span className="title">{object.title}</span>
+          {price && <span className="meta">{price}</span>}
+        </span>
+      </button>
+    </Html>
+  );
 }
 
 class ErrorBoundary extends React.Component {

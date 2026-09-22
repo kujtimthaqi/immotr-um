@@ -475,3 +475,70 @@ Mobile:  rorschach-lite.glb   425 KB  (Gebäude, Draco aggressiver quantisiert)
 ### J) Verifikation
 - Screenshots erzeugt: `twin_v2_desktop.png` (1440×900 Overview), `twin_v2_trischli_desktop.png`, `twin_v2_reitbahn.png` (1440×900 Details), `twin_v2_mobile.png` (390×844 Overview), `twin_v2_mobile_trischli.png` (390×844 Detail).
 - `yarn build` → Compiled successfully in 16.9 s.
+
+## Update (Feb 2026 — Twin: See-Shader + Landmarks + Fly-In + Tag/Abend)
+
+### A) Wassermaske aus Orthofoto
+- Bake in `build_twin.py::bake_water_mask()`:
+  - HSV/RGB-Schwelle auf `ground(-lite).webp` (Bodensee = R < 100, B ≥ R, dunkel), obere 50 % priorisiert (Bodensee liegt nördlich).
+  - `scipy.ndimage.binary_closing/opening` + `gaussian_filter σ=2.0` → weicher Rand.
+  - Ausgabe `water-mask.webp` **108 KB desktop (1024×796)** / **38 KB mobile (512×410)**, ~31 % Wasserpixel.
+- Rectangular `BodenseePlane` entfernt — Uferlinie kommt jetzt direkt aus der Maske, folgt der echten Küste.
+
+### B) Ortho + Water ShaderMaterial (`OrthoGround`)
+- Ersetzt `MeshStandardMaterial` durch dedizierten `ShaderMaterial` (fog-aware via `#include <fog_pars_fragment/vertex>`).
+- Fragment mixt: `mix(ortho * tint * brightness, waterColor, waterMask)`.
+- **Wasser**: 2 skalierte Value-Noise-Layer scrollen entgegengesetzt → animierte Ripples. Fresnel zum `uHorizonColor` (Champagner/Gold Abend, warmes Beige Tag).
+- **Ortho**: leicht entsättigt via Tint `#98a5b7` × Brightness 0.75 (Abend) / heller natürlicher Look (Tag).
+- Smoothstep 0.35–0.65 auf Maske → weicher 3–5 px Rand.
+
+### C) HorizonWater
+- Grosse Plane 6000×3000 m bei z=−2200 nördlich der Ortho-Fläche. Reines Noise-Wasser mit Fog → geht nahtlos in den Sky-Gradient über. Kein Reflector (Perf).
+
+### D) Landmark-Labels via drei `<Html>`
+- `LandmarksInCanvas`: Priorität nach Kind (harbor > landmark > transport > path > city), Mobile max 4, Desktop max 6.
+- Glass-Pill CSS (`.landmark-pill`): 11 px uppercase, `backdrop-filter: blur(10px)`, `rgba(10,20,40,0.55)`, gold-Rahmen `rgba(201,169,110,0.28)`.
+- `distanceFactor` (Desktop 220, Mobile 260) → skaliert automatisch mit Kamera-Abstand.
+- `occlude` → Fade wenn hinter Gebäuden.
+
+### E) Objekt-Pills
+- `ObjectPillInCanvas`: Gold-Gradient-Pill mit Name + Preis-Meta (`CHF X`, `Y/Mt.`), Dot als Focus-Marker.
+- Klick → `onSelect(index)` → Detail-Ansicht wie Karten-Klick.
+- Ausgeblendet wenn Selektion aktiv (kein Doppel-Label).
+
+### F) Cinematic Fly-In + Auto-Orbit
+- `CameraRig` erweitert:
+  - IntersectionObserver auf Twin-Container → `inView`-State.
+  - Fly-In: `start = (0, 1600, −1500)` (hoch über Bodensee, Norden) → orbital-Position, 2.5 s easeInOutCubic mit α=0.35 (schneller Lerp).
+  - Auto-Orbit: 1°/s nach 8 s Inaktivität (`pointerdown/wheel/touchstart` reset `lastInteraction`).
+  - `prefers-reduced-motion` → kein Fly-In, kein Orbit.
+
+### G) Tag/Abend-Toggle
+- Glass-Pill oben rechts (Sun/Moon-Icon + Label), toggelt `dayMode`.
+- Übergang 0.8 s (Uniform-Lerp `uDayMix`).
+- Wechselt: Sonnenposition (`-450,260,120` → `200,900,100`), Sonnenfarbe (`#f5c98a` → `#fffaf0`), Fog-Color (`#0d1a34` → `#a9c1d8`), Ambient (0.48 → 0.7), Sky-Gradient (Navy/Champagner → Skyblau/Beige), Ortho-Tint (kühl → natürlich hell), Wasser-Farbe (dunkles Navy → helles Teal).
+
+### H) Weiterhin auf Backlog (nicht in dieser Iteration)
+- **swissALTI3D Terrain**: STAC + GeoTIFF-Parsing + Vertex-Displacement — deferred; Boden bleibt flach, Ortho kaschiert. Attribution bleibt entsprechend „Luftbild · Gebäude © swisstopo" (ohne Höhenmodell).
+- **N8AO / SSAO**: Post-FX-Chain-Konflikt mit Bloom aus früheren Iterationen; Fallback (Kontakt-Verdunkelung im Bake ins Ortho multiplizieren) auch noch offen.
+- **Occlusion-Kollisionsvermeidung Labels**: drei `<Html occlude>` blendet hinter Geometrie aus, aber Labels können sich noch überlappen (kein Nudge-Algorithmus).
+
+### I) Assets
+```
+Datei                    Desktop     Mobile
+rorschach(-lite).glb     793 KB      425 KB
+ground(-lite).webp     1'438 KB      491 KB
+water-mask(-lite).webp   109 KB       38 KB
+footprints.json            5 KB        5 KB
+twin-meta.json             2 KB        2 KB
+──────────────────────────────────────────
+Summe                   2.27 MB    0.93 MB
+Budget                  8.00 MB    3.00 MB  ✓
+```
+
+### J) Verifikation
+- Screenshots: `twin_v3_overview.png` (Desktop 1440), `twin_v3_day.png` (Tag-Modus), `twin_v3_trischli.png` (Detail), `twin_v3_mobile.png` (Mobile 390).
+- Landmarks sichtbar: BAHNHOF ROSCHACH HAFEN, HAFEN ROSCHACH, KORNHAUS, SEEPROMENADE, ZENTRUM.
+- Tag/Abend-Toggle funktional; Übergang 0.8 s Uniform-Lerp.
+- Bodensee-Fläche folgt Uferlinie (Wassermaske), rechteckige Plane weg.
+- `yarn build` grün (23 s).
