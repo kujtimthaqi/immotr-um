@@ -173,3 +173,19 @@ Real Playwright, 4 Viewports × 2 Themes + DPR=2 Retina:
 - Dark-Filter: `drop-shadow(rgba(247,244,238,0.6) 0px 0px 1px)`. Light-Filter: `none`.
 - Hero-Champagne-Glow beide Modi: `drop-shadow(rgba(230,211,168,0.55) 0px 0px 18px)`.
 - Prod-Build `yarn build` → Compiled successfully.
+
+## Update 7 (Feb 2026 — Lagerraum-Video integriert)
+- **Quelle**: Higgsfield 5s 1080p 4:3, HEVC 10-bit — heruntergeladen und encoded:
+  - `/media/lagerraum.mp4` — 1280×960 H.264 8-bit, faststart, no audio, 599 kB
+  - `/media/lagerraum-mobile.mp4` — 720×540 H.264 8-bit, faststart, no audio, 194 kB
+  - `/media/lagerraum.webm` — 1280×960 VP9 Profile 0 (8-bit für Universal-Kompat), 452 kB
+  - `/media/lagerraum-mobile.webm` — 720×540 VP9 Profile 0, 182 kB
+- **Backend**: `server.py` L440-457 Seed-Eintrag um `video_url="/media/lagerraum.mp4"` erweitert. Bestehendes Mongo-Dokument direkt via `update_one` gepatcht (matched=1, modified=1).
+- **Verhalten** (unverändert, gleiche ListingPicture-Komponente wie Dachwohnung): Desktop Hover + Autoplay bei Sichtbarkeit, Mobile Autoplay per IntersectionObserver am Karten-Container (threshold 0.6), MP4 vor WebM, Single-Video-Coordinator, Tap = Play/Pause, reduced-motion/save-data → nur Poster (bereits in iteration_5/6/7 mit Dachwohnung verifiziert).
+- **Verified** (Playwright echte Mobile-Emulation):
+  - iPhone 390×844 iOS-Safari-UA: currentSrc `lagerraum-mobile.mp4`, playing bei 4.12 s
+  - Android 412×915 Chrome-UA: currentSrc `lagerraum-mobile.mp4`, playing bei 4.29 s
+  - Desktop 1440×900: currentSrc `lagerraum.mp4`, playing bei 4.11 s
+  - Single-Coordinator bestätigt: Dachwohnung paused, Lagerraum spielt
+  - Kein horizontaler Overflow, 0 Console-Errors
+- **Prod-Build** `yarn build` → Compiled successfully.
