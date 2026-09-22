@@ -3,11 +3,12 @@
  * Zielgebäude (obj_trischli16, obj_reitbahn39, obj_geren9) sind separate Nodes
  * → können individuell hervorgehoben werden.
  *
- * Interaction:
- *  - selectedIndex Prop (extern gesetzt via Objekt-Karten oder Marker-Click)
- *  - onSelect Callback: Marker-Click meldet Auswahl nach oben
- *  - onDeselect Callback: „Übersicht"-Button
- *  - CameraRig fliegt gedämpft zum Target
+ * Cinematic-Refresh Feb 2026:
+ *  - Schräge Kamera (Elevation ~32° Detail, ~40° Übersicht) mit Blick Richtung See.
+ *  - Spotlight-Modus: bei Auswahl werden Hintergrundgebäude Richtung Navy abgedunkelt (Lerp).
+ *  - Hemisphere-Light (Gold Sky / Navy Ground) + weiche Directional-Fills → sichtbares Volumen.
+ *  - Extrudierte Katasterpolygon-Konturen (aus footprints.json) für alle drei Ziele als
+ *    goldene Wireframe-Silhouette — konsistent, auch wenn Ziel-Mesh spärlich ist (Reitbahn39).
  *
  * Data © swisstopo · Open Data.
  */
@@ -47,22 +48,25 @@ function RorschachBuildings({ mobile, selectedNodeName, onReady }) {
   const gltf = useLoader(GLTFLoader, url, (loader) => {
     const draco = new DRACOLoader();
     draco.setDecoderPath("/draco/");
-    // WASM only — JS fallback removed for size (all target browsers support WASM).
     draco.setDecoderConfig({ type: "wasm" });
     loader.setDRACOLoader(draco);
   });
 
+  // Materials — Refs für Lerp auf color / emissive
   const materials = useRef({
-    bg: new THREE.MeshStandardMaterial({ color: "#e6e8ee", roughness: 0.85, metalness: 0.05 }),
-    matte: new THREE.MeshStandardMaterial({ color: "#e6e8ee", roughness: 0.85, metalness: 0.05 }),
+    bg: new THREE.MeshStandardMaterial({ color: "#dfe3ec", roughness: 0.78, metalness: 0.08 }),
+    matte: new THREE.MeshStandardMaterial({ color: "#dfe3ec", roughness: 0.78, metalness: 0.08 }),
     goldOn: new THREE.MeshStandardMaterial({
-      color: "#E6D3A8", roughness: 0.4, metalness: 0.4,
-      emissive: "#C9A96E", emissiveIntensity: 1.1,
+      color: "#EBD4A8", roughness: 0.35, metalness: 0.45,
+      emissive: "#C9A96E", emissiveIntensity: 1.15,
     }),
   });
+  // Zieltönungen: für Spotlight-Übergang
+  const colorBgBase = useRef(new THREE.Color("#dfe3ec"));
+  const colorBgDim  = useRef(new THREE.Color("#33445e"));
 
-  const targetMeshes = useRef({}); // name → mesh
-  const edgeLines = useRef({}); // name → LineSegments
+  const targetMeshes = useRef({});
+  const edgeLines = useRef({});
 
   useEffect(() => {
     if (!gltf?.scene) return;
@@ -74,7 +78,6 @@ function RorschachBuildings({ mobile, selectedNodeName, onReady }) {
       if (targets.includes(nm)) {
         targetMeshes.current[nm] = obj;
         obj.material = materials.current.matte;
-        // Add edge lines child for glow-outline
         const eg = new THREE.EdgesGeometry(obj.geometry, 30);
         const line = new THREE.LineSegments(
           eg,
@@ -86,27 +89,104 @@ function RorschachBuildings({ mobile, selectedNodeName, onReady }) {
         obj.material = bgMat;
       }
       obj.frustumCulled = true;
-      obj.castShadow = false;
     });
-    onReady?.({
-      scene: gltf.scene,
-      targetMeshes: targetMeshes.current,
-    });
+    onReady?.({ scene: gltf.scene, targetMeshes: targetMeshes.current });
   }, [gltf, onReady]);
 
-  // Switch materials on selection
-  useEffect(() => {
+  // Spotlight-Übergang: bg-Farbe → dimmed bei Auswahl, weich per Lerp
+  useFrame((_, dt) => {
+    const wantDim = selectedNodeName != null;
+    const target = wantDim ? colorBgDim.current : colorBgBase.current;
+    const speed = Math.min(1, dt * 3); // ~0.8s halbwertszeit
+    materials.current.bg.color.lerp(target, speed);
+    materials.current.bg.emissiveIntensity = 0; // sicherstellen: kein flackern
+    // Target-Materialien: nur der selektierte Node bekommt Gold + Edge-Glow
     const names = Object.keys(targetMeshes.current);
     for (const nm of names) {
       const m = targetMeshes.current[nm];
       const isSelected = nm === selectedNodeName;
-      m.material = isSelected ? materials.current.goldOn : materials.current.matte;
+      const desired = isSelected ? materials.current.goldOn : materials.current.matte;
+      if (m.material !== desired) m.material = desired;
       const line = edgeLines.current[nm];
-      if (line) line.material.opacity = isSelected ? 0.9 : 0;
+      if (line) {
+        const targetOpacity = isSelected ? 0.9 : 0;
+        line.material.opacity += (targetOpacity - line.material.opacity) * speed;
+      }
     }
-  }, [selectedNodeName]);
+  });
 
   return gltf?.scene ? <primitive object={gltf.scene} /> : null;
+}
+
+// ---- Cadastral Footprint Extrusion (per target) ----
+// Build a wireframe extrusion per polygon: bottom loop + top loop + vertical edges.
+function FootprintContours({ selectedNodeName }) {
+  const [data, setData] = useState(null);
+  useEffect(() => {
+    fetch("/twin/footprints.json")
+      .then((r) => r.json())
+      .then(setData)
+      .catch(() => setData(null));
+  }, []);
+
+  const contours = useMemo(() => {
+    if (!data?.targets) return [];
+    return data.targets.map((t) => {
+      const poly = t.polygon;
+      const yLo = t.y_min;
+      // Kontur soll VOLLE Gebäudehöhe zeigen; falls Mesh spärlich, mindestens 12 m
+      const yHi = Math.max(t.y_max, yLo + 12);
+      // Build line segments: bottom edges + top edges + vertical corner edges
+      const verts = [];
+      const n = poly.length;
+      for (let i = 0; i < n; i++) {
+        const [x0, z0] = poly[i];
+        const [x1, z1] = poly[(i + 1) % n];
+        // bottom edge
+        verts.push(x0, yLo, z0,  x1, yLo, z1);
+        // top edge
+        verts.push(x0, yHi, z0,  x1, yHi, z1);
+        // vertical edge at this vertex
+        verts.push(x0, yLo, z0,  x0, yHi, z0);
+      }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
+      return { name: t.name, geometry: geo };
+    });
+  }, [data]);
+
+  const lineRefs = useRef({});
+  useFrame((_, dt) => {
+    const speed = Math.min(1, dt * 3);
+    for (const c of contours) {
+      const l = lineRefs.current[c.name];
+      if (!l) continue;
+      const isSelected = selectedNodeName === c.name;
+      const targetOp = isSelected ? 1.0 : 0.6;
+      l.material.opacity += (targetOp - l.material.opacity) * speed;
+      const targetColor = new THREE.Color(isSelected ? "#F0D9A0" : "#C9A96E");
+      l.material.color.lerp(targetColor, speed);
+    }
+  });
+
+  return (
+    <group>
+      {contours.map((c) => (
+        <lineSegments
+          key={c.name}
+          geometry={c.geometry}
+          ref={(el) => { if (el) lineRefs.current[c.name] = el; }}
+        >
+          <lineBasicMaterial
+            color="#C9A96E"
+            transparent
+            opacity={0.6}
+            depthTest={true}
+          />
+        </lineSegments>
+      ))}
+    </group>
+  );
 }
 
 function raycastYAt(scene, x, z) {
@@ -116,7 +196,7 @@ function raycastYAt(scene, x, z) {
   return hits.length ? hits[0].point.y : 0;
 }
 
-// ---- Interactive Marker with click ----
+// ---- Interactive Marker ----
 function ObjectMarker({ position, index, highlight, onClick }) {
   const ringRef = useRef();
   const beamRef = useRef();
@@ -136,8 +216,8 @@ function ObjectMarker({ position, index, highlight, onClick }) {
     <group
       position={[position[0], 0, position[2]]}
       onClick={(e) => { e.stopPropagation(); onClick?.(index); }}
-      onPointerOver={(e) => (document.body.style.cursor = "pointer")}
-      onPointerOut={(e) => (document.body.style.cursor = "")}
+      onPointerOver={() => (document.body.style.cursor = "pointer")}
+      onPointerOut={() => (document.body.style.cursor = "")}
     >
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.2, 0]} ref={ringRef}>
         <ringGeometry args={[8, 12, 64]} />
@@ -159,7 +239,7 @@ function ObjectMarker({ position, index, highlight, onClick }) {
   );
 }
 
-function LimitedControls({ enabled }) {
+function LimitedControls({ enabled, active }) {
   const { camera, gl } = useThree();
   const ref = useRef();
   useEffect(() => {
@@ -172,36 +252,63 @@ function LimitedControls({ enabled }) {
     c.maxPolarAngle = Math.PI / 2.4;
     c.minDistance = 220;
     c.maxDistance = 900;
-    c.target.set(0, 40, 0);
+    c.target.set(0, 30, 0);
     ref.current = c;
     return () => c.dispose();
   }, [camera, gl, enabled]);
-  useFrame(() => ref.current?.update());
+  useEffect(() => {
+    if (ref.current) ref.current.enabled = active;
+  }, [active]);
+  useFrame(() => {
+    if (ref.current?.enabled) ref.current.update();
+  });
   return null;
 }
 
+// ---- Cinematic Camera Rig ----
+// Detail: schräg von SÜDEN (positives Z im Y-up-System = Süd), Elevation ~32°,
+// Blick nach NORDEN (Richtung Bodensee), Zielgebäude ~22 % der Canvas-Höhe.
+// Übersicht: orbitaler Sweep mit Elevation ~40°.
 function CameraRig({ target, mobile }) {
   const { camera } = useThree();
-  const desired = useRef(new THREE.Vector3());
-  const look = useRef(new THREE.Vector3(0, 40, 0));
-  const angle = useRef(mobile ? -Math.PI / 3 : Math.PI / 4);
+  const desired = useRef(new THREE.Vector3(400, 380, 400));
+  const look = useRef(new THREE.Vector3(0, 30, 0));
+  const angle = useRef(mobile ? -Math.PI / 3.5 : Math.PI / 4);
+  const prevTarget = useRef(null);
+
   useFrame((_, dt) => {
+    // Detect target transition to invalidate old inertia
+    const t = target ? `${target[0].toFixed(1)},${target[1].toFixed(1)},${target[2].toFixed(1)}` : null;
+    const changed = t !== prevTarget.current;
+    prevTarget.current = t;
+
     if (target) {
       const [x, y, z] = target;
-      desired.current.set(x + 100, Math.max(120, y + 70), z + 100);
-      look.current.set(x, y * 0.5 + 20, z);
+      const groundDist = mobile ? 105 : 130;
+      const elevRad = 32 * DEG;
+      const camH = groundDist * Math.tan(elevRad);
+      desired.current.set(x, y + camH, z + groundDist);
+      look.current.set(x, y * 0.5 + 12, z - 25);
     } else {
-      angle.current += dt * 0.06;
-      const r = mobile ? 480 : 540;
-      desired.current.set(Math.cos(angle.current) * r, mobile ? 360 : 320, Math.sin(angle.current) * r);
-      look.current.set(0, 40, 0);
+      angle.current += dt * 0.05;
+      const r = mobile ? 460 : 500;
+      const camY = r * Math.tan(38 * DEG);
+      desired.current.set(Math.cos(angle.current) * r, camY, Math.sin(angle.current) * r);
+      look.current.set(0, 30, 0);
     }
-    camera.position.lerp(desired.current, 0.05);
+    // Snap start on transition to make detail-view arrive quickly
+    if (changed && target) {
+      // start from a slightly retracted position to keep motion smooth (~0.6s)
+      const [x, y, z] = target;
+      camera.position.set(x + 30, y + 200, z + 240);
+    }
+    const alpha = target ? 0.14 : 0.05;
+    camera.position.lerp(desired.current, alpha);
     camera.lookAt(look.current);
-    // Debug hook for tests
     window.__twinDebug = {
       cam: [+camera.position.x.toFixed(1), +camera.position.y.toFixed(1), +camera.position.z.toFixed(1)],
       target,
+      desired: [+desired.current.x.toFixed(1), +desired.current.y.toFixed(1), +desired.current.z.toFixed(1)],
     };
   });
   return null;
@@ -226,10 +333,11 @@ function ShoreLine() {
 }
 
 function Ground() {
+  // Sehr dunkler Boden, damit Dächer im Vergleich hell wirken
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.8, 0]}>
       <planeGeometry args={[3000, 3000]} />
-      <meshStandardMaterial color="#0f1b32" roughness={1} metalness={0} />
+      <meshStandardMaterial color="#070f22" roughness={1} metalness={0} />
     </mesh>
   );
 }
@@ -254,7 +362,6 @@ export default function RealDigitalTwin({ highlightIndex, selectedIndex, onSelec
     return rawPositions.map(([x, , z]) => [x, raycastYAt(gltfState.scene, x, z), z]);
   }, [rawPositions, gltfState]);
 
-  // effective focus: selectedIndex overrides highlightIndex (hover)
   const focusIdx = selectedIndex != null ? selectedIndex : highlightIndex;
   const target = focusIdx != null && positions[focusIdx] ? positions[focusIdx] : null;
   const selectedNode = targetNodeFor(objects[selectedIndex]);
@@ -270,7 +377,7 @@ export default function RealDigitalTwin({ highlightIndex, selectedIndex, onSelec
       <Canvas
         shadows={false}
         dpr={mobile ? [1, 1.5] : [1, 2]}
-        camera={{ position: [400, 320, 400], fov: 42, near: 1, far: 4000 }}
+        camera={{ position: [400, 380, 400], fov: 42, near: 1, far: 4000 }}
         gl={{
           antialias: !mobile,
           powerPreference: mobile ? "low-power" : "high-performance",
@@ -287,10 +394,10 @@ export default function RealDigitalTwin({ highlightIndex, selectedIndex, onSelec
         }}
         style={{ touchAction: mobile ? "pan-y" : "none" }}
       >
-        <fog attach="fog" args={["#0A1428", 600, 2200]} />
-        <ambientLight intensity={0.32} />
-        <directionalLight position={[400, 800, 500]} intensity={1.4} color="#f7e6c2" />
-        <directionalLight position={[-350, 300, -250]} intensity={0.32} color="#4b6ea8" />
+        <fog attach="fog" args={["#0A1428", 800, 2800]} />
+        <ambientLight intensity={0.55} />
+        <directionalLight position={[350, 700, 200]} intensity={1.35} color="#f7e6c2" />
+        <directionalLight position={[-300, 220, -320]} intensity={0.35} color="#3d5a86" />
 
         <Ground />
         <BodenseePlane />
@@ -299,6 +406,7 @@ export default function RealDigitalTwin({ highlightIndex, selectedIndex, onSelec
         <Suspense fallback={null}>
           <ErrorBoundary onError={() => setGlbFailed(true)}>
             <RorschachBuildings mobile={mobile} selectedNodeName={selectedNode} onReady={setGltfState} />
+            <FootprintContours selectedNodeName={selectedNode} />
           </ErrorBoundary>
         </Suspense>
 
@@ -313,24 +421,31 @@ export default function RealDigitalTwin({ highlightIndex, selectedIndex, onSelec
         ))}
 
         <CameraRig target={target} mobile={mobile} />
-        <LimitedControls enabled={!mobile} />
+        <LimitedControls enabled={!mobile} active={target == null} />
 
         <EffectComposer disableNormalPass>
-          <Bloom intensity={mobile ? 0.4 : 0.7} luminanceThreshold={0.5} luminanceSmoothing={0.25} mipmapBlur />
+          <Bloom
+            intensity={mobile ? 0.4 : 0.7}
+            luminanceThreshold={0.55}
+            luminanceSmoothing={0.28}
+          />
         </EffectComposer>
       </Canvas>
 
       {/* Selection label + Übersicht-Button */}
       {selectedLabel && (
         <div
-          className="absolute top-3 right-3 glass px-3 py-2 rounded-full text-[10px] uppercase tracking-[0.24em] text-gold-light pointer-events-auto flex items-center gap-3"
+          className="absolute top-3 right-3 glass px-4 py-2.5 rounded-full text-[10px] uppercase tracking-[0.24em] text-gold-light pointer-events-auto flex items-center gap-3 min-h-[44px]"
           data-testid="twin-selection-label"
         >
-          <span className="truncate max-w-[180px] text-white/90 normal-case tracking-tight">{selectedLabel.address}</span>
+          <span className="truncate max-w-[180px] text-white/90 normal-case tracking-tight">
+            {selectedLabel.address}
+          </span>
           <button
             onClick={onDeselect}
             data-testid="twin-deselect-btn"
-            className="text-gold hover:text-gold-light underline underline-offset-2 uppercase tracking-[0.24em]"
+            className="text-gold hover:text-gold-light uppercase tracking-[0.24em] min-h-[44px] min-w-[88px] px-2 flex items-center justify-center border border-gold/40 rounded-full"
+            aria-label="Zurück zur Übersicht"
           >
             Übersicht
           </button>

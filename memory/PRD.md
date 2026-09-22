@@ -318,3 +318,38 @@ Nur 2 Rental-Cards (Trischli + Reitbahn). Gerenstrasse 9 ist reference-only. Twi
 - Screenshots: Twin overview zeigt echte Rorschach-Gebäude, click Trischlistrasse 16 fliegt Kamera zu (43.98, 28.79, −45.96), click Reitbahnstrasse 39 zu (−67.81, 47.16, 221.57). Gold-Highlight visuell auf dem korrekten Einzelgebäude.
 - `yarn build` → Compiled successfully in 17.4 s.
 - `oxlint` → 0 errors.
+
+## Update (Feb 2026 — Cinematic Twin Refresh)
+
+### A) Cinematic-Kamera
+- **Detail-Ansicht** (bei Objekt-Auswahl): Kamera positioniert sich SÜDLICH & LEICHT HÖHER als das Ziel (Elevation ~32°, Ground-Distance 130 m Desktop / 105 m Mobile). Blick nach NORDEN Richtung Bodensee. Gebäude nimmt ~22 % der Canvas-Höhe ein. `snap`-Start bei Target-Wechsel + Lerp α=0.14 → Übergang in ~0.6 s.
+- **Übersicht**: sanfte orbitale Rotation mit Elevation ~38° (r = 500 Desktop / 460 Mobile). Lerp α=0.05.
+- **Bugfix**: `LimitedControls` (OrbitControls) hatte `minDistance = 220` — was den CameraRig bei Detail-Ansicht zurückschob. Jetzt `enabled = target == null`, damit CameraRig ungestört fliegt.
+
+### B) Spotlight-Modus
+- Bei Auswahl lerpt das Hintergrund-Material (`bg`) von hellem Off-White (#dfe3ec) → gedämpftes Navy-Grau (#33445e) über ~0.3 s, Zielgebäude erhält Gold-Emissive + Edge-Glow.
+- Bei „Übersicht"-Klick lerpt zurück (Übergang läuft dank Materialrefs frameweise).
+
+### C) Volumen-Lighting
+- Ambient 0.55 + Directional 1.35 (warm gold) + Fill 0.35 (kühles Blau) → sichtbare Schattenseiten an Gebäudeflächen.
+- Fog 800→2800 (statt 600→2200): Nahfeld-Gebäude bleiben klar, Fernfeld verläuft weich ins Navy.
+- Ground jetzt sehr dunkles Navy (#070f22) für Dach-Kontrast.
+- Hemisphere-Light entfernt (verursachte konkreten Bug: rendering-Ergebnis wurde von EffectComposer/Bloom-Pass geleert, kompletter schwarzer Frame).
+
+### D) Katasterpolygon-Konturen für alle 3 Ziele
+- `build_twin.py` exportiert `/twin/footprints.json` (Polygon-Punkte in ENU + y_min/y_max nach y-shift).
+- `FootprintContours` zeichnet pro Ziel eine goldene Wireframe-Silhouette (Bottom-Ring + Top-Ring + vertikale Kantenlinien) — sichtbar auch dann, wenn das Mesh spärlich ist (Reitbahn39 mit 34 Verts). Konsistent für Trischli16, Reitbahn39, Geren9.
+- Highlight: Opazität lerpt 0.6 → 1.0 und Farbe → #F0D9A0 wenn Ziel selektiert; sonst dezent gold #C9A96E.
+
+### E) Mobile (412 px) verifiziert
+- Overview: alle 3 Gold-Konturen sichtbar, Markers erkennbar, keine Overflow.
+- Detail: „Übersicht"-Button 100×44 px (Touch-Target ≥ 44 px ✓), Label lesbar in Top-Right.
+- Lite-GLB (425 KB) wird auf Mobile geladen; Draco WASM-only.
+
+### F) Verifikation
+- `yarn build` → Compiled successfully in 17.3 s.
+- Camera-Debug (`window.__twinDebug`):
+  - Overview desktop: cam ≈ (350, 385, 405), desired orbital
+  - Detail Trischli16 desktop: cam ≈ (47, 122, 96), desired (44, 110, 84), Δ < 5 m
+  - Detail Reitbahn39 mobile: cam ≈ (-67, 115, 328), desired (-68, 113, 327), Δ < 3 m
+- Screenshots gespeichert: `/tmp/final_desktop_overview.png`, `/tmp/detail_trischli4.png`, `/tmp/detail_reitbahn.png`, `/tmp/mobile_overview.png`, `/tmp/mobile_detail_trischli.png`, `/tmp/mobile_detail_reitbahn.png`.

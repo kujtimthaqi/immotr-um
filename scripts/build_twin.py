@@ -281,13 +281,29 @@ TARGETS = [
 TARGET_FALLBACK_M = 8.0
 
 def _reframe_lv95_to_wgs84(e, n, alt=400.0):
-    """LV95 → WGS84 via swisstopo Reframe REST-Service. Returns (lat, lon)."""
+    """LV95 → WGS84 via swisstopo Reframe REST-Service. Returns (lat, lon).
+    Retries auf transiente 502-Fehler; Fallback = einfache Approximation."""
     url = f"https://geodesy.geo.admin.ch/reframe/lv95towgs84?easting={e}&northing={n}&altitude={alt}&format=json"
-    r = session.get(url, timeout=15)
-    r.raise_for_status()
-    j = r.json()
-    # easting=lon, northing=lat (Reframe convention)
-    return float(j["northing"]), float(j["easting"])
+    last_exc = None
+    for attempt in range(5):
+        try:
+            r = session.get(url, timeout=15)
+            r.raise_for_status()
+            j = r.json()
+            return float(j["northing"]), float(j["easting"])
+        except Exception as ex:
+            last_exc = ex
+            time.sleep(0.5 * (attempt + 1))
+    # Fallback: 6-parameter approximation (Rorschach-nah gut genug für Polygonpunkte)
+    # LV95 → WGS84 näherungsweise
+    y = (e - 2600000) / 1000000
+    x = (n - 1200000) / 1000000
+    lon_approx = 2.6779094 + 4.728982*y + 0.791484*y*x + 0.1306*y*x*x - 0.0436*y**3
+    lat_approx = 16.9023892 + 3.238272*x - 0.270978*y*y - 0.002528*x*x - 0.0447*y*y*x - 0.0140*x**3
+    lon = lon_approx * 100 / 36
+    lat = lat_approx * 100 / 36
+    print(f"    ⚠️ reframe fallback used ({last_exc})")
+    return lat, lon
 
 def _polygon_area_2d(poly):
     a = 0.0
@@ -550,6 +566,8 @@ def main():
                 print(f"  {i+1}/{len(b3dm_urls)} tiles, verts so far: {stats['vertices']}", flush=True)
 
     print(f"\n  Stats: {stats}")
+    # Compute per-target height ranges from actual mesh vertices (AFTER y-shift)
+    target_heights = []
     for i, t in enumerate(TARGET_FOOTPRINTS):
         n = stats["target_hits"][i]
         if n and target_positions[i]:
@@ -558,10 +576,15 @@ def main():
             cz = float(all_pts[:, 2].mean())
             ax, az = t["addr_enu"]
             d = math.hypot(cx - ax, cz - az)
+            target_heights.append({
+                "y_min_raw": float(all_pts[:, 1].min()),
+                "y_max_raw": float(all_pts[:, 1].max()),
+            })
             print(f"  ✓ {t['name']:16s}: {n} mesh chunks, "
                   f"assembled center=({cx:.1f},{cz:.1f}), "
-                  f"Δaddr={d:.2f} m")
+                  f"Δaddr={d:.2f} m, height=[{all_pts[:,1].min():.1f},{all_pts[:,1].max():.1f}]")
         else:
+            target_heights.append({"y_min_raw": 0.0, "y_max_raw": 15.0})
             print(f"  ⚠️  {t['name']:16s}: 0 hits!")
 
     if not bg_positions and not any(target_positions):
@@ -622,6 +645,24 @@ def main():
 
     write_glb_draco_multi(OUT_DIR / "rorschach.glb", primitives_desktop, quantization_bits=14, compression_level=7)
     write_glb_draco_multi(OUT_DIR / "rorschach-lite.glb", primitives_lite, quantization_bits=11, compression_level=10)
+
+    # Export footprints.json — polygon rings in ENU (y-shifted) + heights per target,
+    # used by frontend to draw gold extruded contour lines.
+    footprints_out = []
+    for i, t in enumerate(TARGET_FOOTPRINTS):
+        h = target_heights[i]
+        y_min = h["y_min_raw"] - y_shift  # apply same shift as mesh positions
+        y_max = h["y_max_raw"] - y_shift
+        footprints_out.append({
+            "name": t["name"],
+            "polygon": [[float(x), float(z)] for (x, z) in t["poly_enu"]],
+            "centroid": [float(t["centroid_enu"][0]), float(t["centroid_enu"][1])],
+            "y_min": float(y_min),
+            "y_max": float(y_max),
+        })
+    with open(OUT_DIR / "footprints.json", "w") as f:
+        json.dump({"targets": footprints_out}, f, indent=2)
+    print(f"  wrote {OUT_DIR}/footprints.json ({len(footprints_out)} targets)")
 
     print("\n[4/4] Done.")
     print(f"  {OUT_DIR}/rorschach.glb size: {(OUT_DIR/'rorschach.glb').stat().st_size:,} bytes")
