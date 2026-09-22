@@ -47,6 +47,8 @@ function RorschachBuildings({ mobile, selectedNodeName, onReady }) {
   const gltf = useLoader(GLTFLoader, url, (loader) => {
     const draco = new DRACOLoader();
     draco.setDecoderPath("/draco/");
+    // WASM only — JS fallback removed for size (all target browsers support WASM).
+    draco.setDecoderConfig({ type: "wasm" });
     loader.setDRACOLoader(draco);
   });
 

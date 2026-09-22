@@ -250,3 +250,71 @@ Auf der echten Kunden-Domain nach Deploy sind **keine** externen Requests mehr a
 
 - Prod-Build `yarn build` → Compiled successfully.
 - Screenshots: Design pixel-identisch zu vorher (Fraunces + Inter mit vollen Umlauten + Sonderzeichen).
+
+## Update 10 (Feb 2026 — Digital Twin Interaktion + Building-Highlight + Impressum/Datenschutz)
+
+### A) Digital Twin
+- `scripts/build_twin.py` erweitert: 3 Ziel-Adressen als separate GLB-Nodes/Meshes gebacken.
+  - TARGETS mit lat/lng + Radius 100m (Adresse liegt am Strassenpunkt, Building-Center 50-90m weg).
+  - `write_glb_draco_multi()`: mehrere Primitives (background + obj_trischli16 + obj_reitbahn39 + obj_geren9), jedes mit eigenem Draco-Buffer und Node-Name.
+  - Grösse: `rorschach.glb` 827 KB (+1.3%), `rorschach-lite.glb` 492 KB (+2.6%) — beide unter 10% Budget.
+- `RealDigitalTwin.jsx`: neue Props `selectedIndex`, `onSelect`, `onDeselect`. Selected Building bekommt goldenes emissive Material + Edges-Glow (LineSegments Overlay). CameraRig fliegt bei Selektion gedämpft zum Target, exponiert `window.__twinDebug={cam, target}` für Tests. ObjectMarker mit onClick-Handler (R3F raycast). Übersicht-Button entfernt Selektion.
+- `Objekte.jsx`: `selectedIdx`-State, ListingCard onClick=handleSelect(i), Mobile scrollt Twin via `scrollIntoView({behavior:'smooth'})` in Sicht. Action-Buttons (Anfrage, PDF) haben `stopPropagation`.
+
+### B) Impressum + Datenschutz
+- `/pages/Impressum.jsx`: Vollständig — Kontakt (Strandweg 17, 8807 Freienbach), Rechtsform (AG), Mitgliedschaften (SIV, Casafair), Haftungsausschluss, Urheberrecht (Higgsfield · swisstopo · Wappen Jehli). Handelsregister-Zeile nur als Code-Kommentar, bis geliefert.
+- `/pages/Datenschutz.jsx`: revDSG-konform, Stand Februar 2026. Abschnitte 1-6: Verantwortliche Stelle, Welche Daten (Kontaktform, Bewertung, KI-Chat, Server-Logs), Zwecke, Auftragsbearbeiter (Emergent Hosting, Anthropic USA mit expliziter Warnung „keine sensiblen Daten"), Cookies/Tracking (keine — Fonts/3D/Draco lokal), Rechte betroffener Personen (Auskunft/Berichtigung/Löschung).
+- `FloatingChat.jsx`: neue Zeile „KI-Assistent · keine sensiblen Daten eingeben · Datenschutz" mit Link zu /datenschutz.
+- `Kontakt.jsx`: Zusatzzeile unter Submit-Button „Mit dem Absenden stimmen Sie der Bearbeitung gemäss Datenschutzerklärung zu."
+
+### C) Verified (testing_agent iteration_10, 13/14 PASS)
+
+| Test | Status | Detail |
+|---|---|---|
+| A1a Card-Klick fliegt Kamera | ✅ | cam 346→246 (Δ 230 units) |
+| A1b Übersicht-Button deselect | ✅ | data-selected-index="" |
+| A1c Mobile Tap scrollt Twin | ✅ | canvas top -507 → 232 |
+| A1d Marker-Klick via Mouse | ⚠️ | Card-Path verifiziert, Mouse-Raycast auf Canvas-Mitte trifft nicht immer — Funktion selbst implementiert |
+| A2 Building golden Highlight | ✅ | Screenshot-Beweis, GLB 827 KB ≤ 900 KB |
+| A3 Screenshot-Beweise | ✅ | twin_desktop_click_0..2.jpg |
+| B1 Impressum-Seite | ✅ | Alle Abschnitte vorhanden |
+| B2 Datenschutz-Seite | ✅ | revDSG, alle 6 Abschnitte |
+| B3 Chat Privacy-Zeile | ✅ | Link → /datenschutz |
+| B4 Kontakt Privacy-Zeile | ✅ | Link → /datenschutz |
+| C1 Desktop Overlap/Overflow | ✅ | 1440===1440, kein Overlap |
+| C2 Mobile 390/412 Overflow | ✅ | scrollWidth==innerWidth |
+| C4 Console-Errors | ✅ | 0 |
+
+### Datennotiz
+Nur 2 Rental-Cards (Trischli + Reitbahn). Gerenstrasse 9 ist reference-only. Twin unterstützt trotzdem alle 3 Targets für den Fall, dass später ein Rental hinzukommt.
+
+- Prod-Build `yarn build` → Compiled successfully.
+
+## Update (Feb 2026 — Präzises Gebäude-Highlighting & Lint-Fix)
+
+### A) Lint-Blocker gelöst
+- `public/draco/draco_decoder.js` (JS-Fallback, 512 KB) entfernt — alle Zielbrowser (Feb 2026) unterstützen WASM.
+- `public/draco/draco_wasm_wrapper.js`: prependen von `/* oxlint-disable */ /* eslint-disable */` gegen `no-undef` auf UMD-Globals (`define`).
+- `RealDigitalTwin.jsx`: `draco.setDecoderConfig({ type: 'wasm' })` explizit — kein Fallback-Load-Versuch mehr.
+- Ergebnis: `oxlint` → 0 errors, 17 warnings (unused vars, unrelated). `yarn build` grün.
+
+### B) Präzise Gebäude-Zuordnung (Bake-Bugfix)
+- **Root Cause**: Zwei kombinierte Fehler im swisstopo B3DM → ENU Transform:
+  1. Fehlende glTF Y-up → Z-up Rotation (M_yup2zup) zwischen NodeMatrix und RTC_CENTER (3D Tiles 1.0 Spec).
+  2. Selektion via Mesh-Centroid + 100 m Radius (viel zu grob; swissbuildings3d fasst mehrere Gebäude pro Tile-Mesh zusammen).
+- **Fix**:
+  1. `transform_positions`: korrekte Pipeline `ECEF = RTC + M_yup2zup · (NodeMatrix · p_local)`, danach ECEF→ENU@Rorschach, dann three.js Y-up. Höhe im Center = 400 m (Rorschach-Niveau) — y-shift reduziert von −316 m → −13.5 m.
+  2. `fetch_building_footprints()`: swisstopo `ch.kantone.cadastralwebmap-farbe` `identify` mit LV95-Adresspunkt → smallest containing polygon → Ringpunkte via `reframe/lv95towgs84` → ENU. Ergebnis: echtes Gebäude-Footprint pro Adresse (Trischli16 = 467 m², Reitbahn39 = 260 m², Geren9 = 289 m²).
+  3. `split_mesh_by_targets()`: pro Dreieck Majority-Vote der 3 Vertex-Labels (Vertex-Label = Katasterpolygon, das (x,z) enthält, oder Punkt innerhalb `TARGET_FALLBACK_M = 8 m` um Polygon-Centroid). Triangles ohne Mehrheit → Hintergrund. Damit werden Ziel-Gebäude aus multi-building Tile-Meshes präzise herausgeschnitten.
+- **Kontrolle (Bake-Log)**:
+  - `obj_trischli16`: mesh center ENU=(41.4, −41.5), Δ Adresspunkt = 5.2 m, Δ Katasterzentrum = 6.5 m, Höhe 15 m.
+  - `obj_reitbahn39`: mesh center ENU=(−67.7, 228.2), Δ Adresspunkt = 6.6 m, Δ Katasterzentrum = 6.9 m, Höhe 23 m.
+  - `obj_geren9`: mesh center ENU=(−27.9, −65.5), Δ Adresspunkt = 3.8 m, Δ Katasterzentrum = 3.3 m, Höhe 15 m.
+- **Uferlinie**: Bodensee im Twin klar sichtbar nördlich der Gebäude, keine Gebäude im See.
+- **Aufrecht**: Höhen-Span pro Zielgebäude 14–23 m ✓.
+- **GLB-Grössen**: `rorschach.glb` 793 KB (−4%), `rorschach-lite.glb` 425 KB (−14%).
+
+### C) Verifikation
+- Screenshots: Twin overview zeigt echte Rorschach-Gebäude, click Trischlistrasse 16 fliegt Kamera zu (43.98, 28.79, −45.96), click Reitbahnstrasse 39 zu (−67.81, 47.16, 221.57). Gold-Highlight visuell auf dem korrekten Einzelgebäude.
+- `yarn build` → Compiled successfully in 17.4 s.
+- `oxlint` → 0 errors.

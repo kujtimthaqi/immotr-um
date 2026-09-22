@@ -231,23 +231,33 @@ def extract_meshes_from_glb(glb_bytes):
             results.append({"positions": pts, "indices": idx, "matrix": M})
     return results
 
+# glTF Y-up → Z-up rotation (Rotation +90° um X): (x, y, z) → (x, -z, y)
+# 3D Tiles 1.0 wendet dies NACH der NodeMatrix und VOR RTC_CENTER an.
+M_YUP2ZUP = np.array([
+    [1, 0,  0],
+    [0, 0, -1],
+    [0, 1,  0],
+], dtype=np.float64)
+
 # --- ECEF+node → ENU transform ---
 def transform_positions(pts, node_mat, rtc):
     """
-    pts: (N,3) in node-local coords.
-    Apply node.matrix → tile-local, add RTC_CENTER → ECEF, then ECEF→ENU@Rorschach, then Y-up.
-    Return (N,3) np.float32.
+    3D Tiles 1.0 Pipeline:
+      ECEF = RTC + M_yup2zup · (NodeMatrix · p_local)
+    Wir wenden dann noch ECEF→ENU@Rorschach an und mappen zu three.js Y-up.
     """
     N = pts.shape[0]
-    # Node transform
     pts4 = np.hstack([pts.astype(np.float64), np.ones((N, 1))])  # (N,4)
-    tile_local = (node_mat @ pts4.T).T[:, :3]  # (N,3)
-    # Add RTC_CENTER → ECEF
-    ecef = tile_local + rtc
-    # ECEF → ENU
+    # 1) NodeMatrix (T·R·S) auf lokale Punkte
+    node_local = (node_mat @ pts4.T).T[:, :3]  # (N,3)
+    # 2) Y-up → Z-up
+    zup = (M_YUP2ZUP @ node_local.T).T  # (N,3)
+    # 3) + RTC_CENTER → ECEF
+    ecef = zup + rtc
+    # 4) ECEF → ENU@Rorschach
     delta = ecef - ECEF_CENTER
     enu = (R_ECEF_TO_ENU @ delta.T).T  # (N,3) [E, N, U]
-    # Y-up: X=E, Y=U, Z=-N
+    # 5) three.js Y-up: X=E, Y=U, Z=-N
     yup = np.column_stack([enu[:, 0], enu[:, 2], -enu[:, 1]]).astype(np.float32)
     return yup
 
@@ -258,18 +268,136 @@ def latlng_to_enu(lat, lon):
     dLon = (lon - CENTER_LON) * 111320 * math.cos(math.radians(CENTER_LAT))
     return (dLon, -dLat)  # (E, -N) in three.js Y-up: X=East, Z=-North
 
+# Ziel-Adressen inkl. LV95-Koordinaten aus swisstopo SearchServer (origins=address).
+# Aus diesen holen wir das ECHTE Gebäude-Footprint-Polygon (ch.kantone.cadastralwebmap-farbe),
+# was uns eindeutige Identifikation via Point-in-Polygon erlaubt.
 TARGETS = [
-    ("obj_trischli16",   47.47791290283203, 9.488584518432617),
-    ("obj_reitbahn39",   47.47550964355469, 9.487098693847656),
-    ("obj_geren9",       47.47812271118164, 9.487630844116211),
+    # (node_name, addr_lat, addr_lon, lv95_e, lv95_n)
+    ("obj_trischli16",  47.47791290, 9.48858452, 2754506.5,  1260589.625),
+    ("obj_reitbahn39",  47.47550964, 9.48709869, 2754401.5,  1260319.75),
+    ("obj_geren9",      47.47812271, 9.48763084, 2754434.0,  1260611.125),
 ]
-TARGET_RADIUS_M = 100.0  # Adresse liegt am Strassenpunkt, Building-Center kann ~50-90m weg sein
+# Fallback-Radius, falls kein Polygon-Treffer (Toleranz für schmale Mesh-Splitter am Rand).
+TARGET_FALLBACK_M = 8.0
+
+def _reframe_lv95_to_wgs84(e, n, alt=400.0):
+    """LV95 → WGS84 via swisstopo Reframe REST-Service. Returns (lat, lon)."""
+    url = f"https://geodesy.geo.admin.ch/reframe/lv95towgs84?easting={e}&northing={n}&altitude={alt}&format=json"
+    r = session.get(url, timeout=15)
+    r.raise_for_status()
+    j = r.json()
+    # easting=lon, northing=lat (Reframe convention)
+    return float(j["northing"]), float(j["easting"])
+
+def _polygon_area_2d(poly):
+    a = 0.0
+    n = len(poly)
+    for i in range(n):
+        x1, y1 = poly[i]
+        x2, y2 = poly[(i + 1) % n]
+        a += x1 * y2 - x2 * y1
+    return abs(a) / 2
+
+def _pip_2d(pt, poly):
+    x, y = pt
+    n = len(poly)
+    inside = False
+    j = n - 1
+    for i in range(n):
+        xi, yi = poly[i]
+        xj, yj = poly[j]
+        if ((yi > y) != (yj > y)) and (x < (xj - xi) * (y - yi) / ((yj - yi) or 1e-9) + xi):
+            inside = not inside
+        j = i
+    return inside
+
+def fetch_building_footprints():
+    """
+    Für jede TARGETS-Adresse:
+      1. Cadastral-Layer bei LV95-Adresspunkt identifizieren.
+      2. Smallest containing polygon wählen (= tatsächliches Gebäude).
+      3. Alle Ringpunkte via Reframe nach WGS84, dann nach ENU (X=E, Z=-N).
+    Returns: list of dict {name, poly_enu[(x,z), ...], centroid_enu, addr_enu, addr_ll}.
+    """
+    result = []
+    for name, alat, alon, ax, ay in TARGETS:
+        print(f"  → {name}: identify cadastral @ LV95=({ax},{ay})")
+        bbox = f"{ax-30},{ay-30},{ax+30},{ay+30}"
+        url = (
+            "https://api3.geo.admin.ch/rest/services/all/MapServer/identify?"
+            f"geometry={ax},{ay}&geometryType=esriGeometryPoint"
+            f"&layers=all:ch.kantone.cadastralwebmap-farbe&tolerance=20"
+            f"&mapExtent={bbox}&imageDisplay=100,100,96&sr=2056"
+            "&returnGeometry=true&geometryFormat=geojson"
+        )
+        r = session.get(url, timeout=20)
+        r.raise_for_status()
+        hits = r.json().get("results", [])
+        polys = []
+        for h in hits:
+            g = h.get("geometry", {})
+            if g.get("type") != "Polygon":
+                continue
+            rings = g.get("coordinates", [])
+            if rings:
+                polys.append(rings[0])
+        containing = [p for p in polys if _pip_2d((ax, ay), p)]
+        winner = None
+        if containing:
+            winner = min(containing, key=_polygon_area_2d)
+        else:
+            # kein containing polygon → nimm nächstgelegenes
+            if polys:
+                def _cdist(p):
+                    cx = sum(v[0] for v in p) / len(p)
+                    cy = sum(v[1] for v in p) / len(p)
+                    return math.hypot(cx - ax, cy - ay)
+                winner = min(polys, key=_cdist)
+        if winner is None:
+            print(f"    ⚠️  no polygon found — will use fallback radius only")
+            addr_enu = latlng_to_enu(alat, alon)
+            result.append({
+                "name": name, "poly_enu": [], "centroid_enu": addr_enu,
+                "addr_enu": addr_enu, "addr_ll": (alat, alon),
+            })
+            continue
+        # Reframe alle Ringpunkte
+        poly_enu = []
+        for px, py in winner:
+            plat, plon = _reframe_lv95_to_wgs84(px, py)
+            poly_enu.append(latlng_to_enu(plat, plon))
+        cx_enu = sum(v[0] for v in poly_enu) / len(poly_enu)
+        cz_enu = sum(v[1] for v in poly_enu) / len(poly_enu)
+        addr_enu = latlng_to_enu(alat, alon)
+        area = _polygon_area_2d(winner)
+        d_addr_center = math.hypot(cx_enu - addr_enu[0], cz_enu - addr_enu[1])
+        print(f"    ✓ polygon area={area:.0f} m², {len(poly_enu)} verts, "
+              f"centroid ENU=({cx_enu:.1f},{cz_enu:.1f}), "
+              f"Δaddr↔center={d_addr_center:.2f} m")
+        result.append({
+            "name": name, "poly_enu": poly_enu,
+            "centroid_enu": (cx_enu, cz_enu),
+            "addr_enu": addr_enu,
+            "addr_ll": (alat, alon),
+        })
+    return result
+
+# gefüllt in main() vor Tile-Decoding
+TARGET_FOOTPRINTS = []
 
 def find_target_for_center(cx, cz):
-    """Returns target index (0..2) if building center falls within radius, else None."""
-    best_i, best_d = None, TARGET_RADIUS_M
-    for i, (_, lat, lon) in enumerate(TARGETS):
-        tx, tz = latlng_to_enu(lat, lon)
+    """
+    Genaue Zuordnung: bevorzuge Polygon-Treffer.
+    1) Enthält irgendein Footprint (cx,cz)? → Index dieses Footprints.
+    2) Fallback: nächster Adresspunkt mit Distanz < TARGET_FALLBACK_M.
+    """
+    for i, t in enumerate(TARGET_FOOTPRINTS):
+        if t["poly_enu"] and _pip_2d((cx, cz), t["poly_enu"]):
+            return i
+    # Fallback (nur enger Radius, um Splitter am Gebäuderand einzufangen)
+    best_i, best_d = None, TARGET_FALLBACK_M
+    for i, t in enumerate(TARGET_FOOTPRINTS):
+        tx, tz = t["centroid_enu"]
         d = math.hypot(cx - tx, cz - tz)
         if d < best_d:
             best_d, best_i = d, i
@@ -279,6 +407,10 @@ def main():
     print(f"Bounding box: lat [{CENTER_LAT - HALF_LAT:.5f}, {CENTER_LAT + HALF_LAT:.5f}] "
           f"lon [{CENTER_LON - HALF_LON:.5f}, {CENTER_LON + HALF_LON:.5f}]")
     print(f"ECEF center: {ECEF_CENTER}")
+
+    print("\n[0/4] Fetching exact building footprints via cadastral layer…")
+    global TARGET_FOOTPRINTS
+    TARGET_FOOTPRINTS = fetch_building_footprints()
 
     print("\n[1/4] Walking tileset hierarchy…")
     root_bytes = http_get(urljoin(BASE_URL, ROOT_TILESET))
@@ -300,6 +432,85 @@ def main():
     stats = {"downloaded": 0, "meshes": 0, "vertices": 0, "faces": 0, "failed": 0,
              "target_hits": [0, 0, 0]}
 
+    # Precompute footprint XZ-bboxes for quick reject
+    footprint_bboxes = []
+    for t in TARGET_FOOTPRINTS:
+        if t["poly_enu"]:
+            xs = [v[0] for v in t["poly_enu"]]
+            zs = [v[1] for v in t["poly_enu"]]
+            # pad by TARGET_FALLBACK_M
+            footprint_bboxes.append((
+                min(xs) - TARGET_FALLBACK_M, max(xs) + TARGET_FALLBACK_M,
+                min(zs) - TARGET_FALLBACK_M, max(zs) + TARGET_FALLBACK_M,
+            ))
+        else:
+            footprint_bboxes.append(None)
+
+    def split_mesh_by_targets(pts, faces):
+        """
+        pts: (N,3) float32, faces: (M,) uint32 (triangle indices).
+        Return dict: -1 (bg) or 0..len(TARGETS)-1 → (sub_pts (K,3), sub_faces (L,))
+        Assignment: for each triangle, majority vote on 3 vertices;
+        vertex assignment = smallest polygon that CONTAINS (x,z),
+        else target within TARGET_FALLBACK_M around polygon, else -1.
+        """
+        N = pts.shape[0]
+        # 1) per-vertex label
+        vlabels = np.full(N, -1, dtype=np.int8)
+        for i, t in enumerate(TARGET_FOOTPRINTS):
+            bb = footprint_bboxes[i]
+            if bb is None:
+                continue
+            xmin, xmax, zmin, zmax = bb
+            # Coarse XZ-bbox mask
+            in_bb = (pts[:, 0] >= xmin) & (pts[:, 0] <= xmax) & \
+                    (pts[:, 2] >= zmin) & (pts[:, 2] <= zmax)
+            if not in_bb.any():
+                continue
+            idxs = np.where(in_bb)[0]
+            poly = t["poly_enu"]
+            cx, cz = t["centroid_enu"]
+            for vi in idxs:
+                if vlabels[vi] != -1:
+                    continue
+                x, z = float(pts[vi, 0]), float(pts[vi, 2])
+                if _pip_2d((x, z), poly):
+                    vlabels[vi] = i
+                else:
+                    # fallback: within tight radius of centroid
+                    if math.hypot(x - cx, z - cz) < TARGET_FALLBACK_M:
+                        vlabels[vi] = i
+        # 2) per-triangle label = majority vote (or -1 if tied against bg)
+        tri = faces.reshape(-1, 3)
+        l0 = vlabels[tri[:, 0]]
+        l1 = vlabels[tri[:, 1]]
+        l2 = vlabels[tri[:, 2]]
+        # For each triangle, if all 3 same → that label, else if 2 same → that label, else -1
+        agree01 = l0 == l1
+        agree12 = l1 == l2
+        agree02 = l0 == l2
+        tri_labels = np.full(tri.shape[0], -1, dtype=np.int8)
+        # majority = 2+ agree
+        for i in range(len(TARGETS)):
+            mask = ((l0 == i) & (l1 == i)) | ((l1 == i) & (l2 == i)) | ((l0 == i) & (l2 == i))
+            tri_labels[mask] = i
+        # Split
+        out = {}
+        # Background = all triangles with label -1
+        bg_mask = tri_labels == -1
+        if bg_mask.any():
+            faces_bg = tri[bg_mask].reshape(-1).astype(np.uint32)
+            # Compact: only keep referenced vertices
+            uniq, inv = np.unique(faces_bg, return_inverse=True)
+            out[-1] = (pts[uniq].astype(np.float32), inv.astype(np.uint32))
+        for i in range(len(TARGETS)):
+            m = tri_labels == i
+            if m.any():
+                faces_t = tri[m].reshape(-1).astype(np.uint32)
+                uniq, inv = np.unique(faces_t, return_inverse=True)
+                out[i] = (pts[uniq].astype(np.float32), inv.astype(np.uint32))
+        return out
+
     def fetch(u):
         try:
             return u, http_get(u)
@@ -318,18 +529,18 @@ def main():
                 for m in meshes:
                     pts = transform_positions(m["positions"], m["matrix"], rtc)
                     idx = m["indices"]
-                    cx = float(pts[:, 0].mean())
-                    cz = float(pts[:, 2].mean())
-                    ti = find_target_for_center(cx, cz)
-                    if ti is not None:
-                        target_positions[ti].append(pts)
-                        target_indices[ti].append(idx + target_offsets[ti])
-                        target_offsets[ti] += pts.shape[0]
-                        stats["target_hits"][ti] += 1
-                    else:
-                        bg_positions.append(pts)
-                        bg_indices.append(idx + bg_offset)
-                        bg_offset += pts.shape[0]
+                    # Per-triangle split by target polygon
+                    parts = split_mesh_by_targets(pts, idx)
+                    for label, (sub_pts, sub_idx) in parts.items():
+                        if label == -1:
+                            bg_positions.append(sub_pts)
+                            bg_indices.append(sub_idx + bg_offset)
+                            bg_offset += sub_pts.shape[0]
+                        else:
+                            target_positions[label].append(sub_pts)
+                            target_indices[label].append(sub_idx + target_offsets[label])
+                            target_offsets[label] += sub_pts.shape[0]
+                            stats["target_hits"][label] += 1
                     stats["meshes"] += 1
                     stats["vertices"] += pts.shape[0]
                     stats["faces"] += idx.shape[0] // 3
@@ -339,6 +550,19 @@ def main():
                 print(f"  {i+1}/{len(b3dm_urls)} tiles, verts so far: {stats['vertices']}", flush=True)
 
     print(f"\n  Stats: {stats}")
+    for i, t in enumerate(TARGET_FOOTPRINTS):
+        n = stats["target_hits"][i]
+        if n and target_positions[i]:
+            all_pts = np.concatenate(target_positions[i], axis=0)
+            cx = float(all_pts[:, 0].mean())
+            cz = float(all_pts[:, 2].mean())
+            ax, az = t["addr_enu"]
+            d = math.hypot(cx - ax, cz - az)
+            print(f"  ✓ {t['name']:16s}: {n} mesh chunks, "
+                  f"assembled center=({cx:.1f},{cz:.1f}), "
+                  f"Δaddr={d:.2f} m")
+        else:
+            print(f"  ⚠️  {t['name']:16s}: 0 hits!")
 
     if not bg_positions and not any(target_positions):
         print("ERROR: no meshes extracted.")
@@ -382,7 +606,8 @@ def main():
         primitives_desktop.append(("background", bg_d_pts, bg_d_idx))
         primitives_lite.append(("background", bg_l_pts, bg_l_idx))
 
-    for i, (name, _, _) in enumerate(TARGETS):
+    for i, tinfo in enumerate(TARGETS):
+        name = tinfo[0]
         tp, ti = target_data[i]
         if tp is None:
             continue
