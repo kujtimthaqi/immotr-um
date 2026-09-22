@@ -220,3 +220,33 @@ Rekursiver Walk der swisstopo tileset.json-Hierarchie, filtert Kacheln deren `re
 - Draco-Anfragen gehen jetzt nur zum eigenen Origin `/draco/*.wasm` — 0 externe CDN-Requests für die 3D-Engine.
 - Google Fonts (Fraunces, Inter) noch von fonts.gstatic.com — kann bei Bedarf ebenfalls self-hosted werden (P2).
 - Prod-Build `yarn build` → Compiled successfully.
+
+## Update 9 (Feb 2026 — Self-Hosted Fonts, keine externen CDN-Requests mehr)
+
+### Fonts nach lokal
+- 6 woff2-Files (Latin + Latin-Extended) heruntergeladen und in `/app/frontend/public/fonts/`:
+  - Fraunces normal + italic, variable weight 200-500 · latin + latin-ext (4 Files, 280 KB)
+  - Inter normal, variable weight 300-600 · latin + latin-ext (2 Files, 134 KB)
+  - Total: 413 KB (nur die tatsächlich benötigten Subsets — Vietnamese/Cyrillic/Greek weggelassen)
+- `@font-face`-Rules in `/public/fonts/fonts.css` (bewusst nicht in src/, damit Webpack sie nicht ins Bundle inlined)
+- `<link rel="stylesheet" href="/fonts/fonts.css">` + 2× `<link rel="preload" as="font" type="font/woff2" crossorigin>` für Fraunces + Inter Latin (wichtigste Weights) in `index.html`
+- `font-display: swap` — kein FOIT
+- Alle `fonts.googleapis.com` / `fonts.gstatic.com` Referenzen aus `index.html` entfernt
+
+### Verified (Playwright, 3 Sessions)
+
+| Viewport | Theme | h1-Font (computed) | Overflow | Console-Errors | Externe Requests (Prod-relevant) |
+|---|---|---|---|---|---|
+| Desktop 1440 | dark  | Fraunces, 300, 104 px | ok | 0 | **0** |
+| Desktop 1440 | light | Fraunces, 300, 104 px | ok | 0 | **0** |
+| iPhone 390   | dark  | Fraunces, 300, 42 px  | ok | 0 | **0** |
+
+### Verbleibende externe Requests im Preview
+Diese kommen **nicht** aus dem Code und werden **nicht** in den deployed Prod-Build injiziert — nur die Emergent-Preview-Infrastruktur setzt sie:
+- `assets.emergent.sh/scripts/emergent-main.js` — Preview-Overlay
+- `static.cloudflareinsights.com/beacon.min.js` — Cloudflare-Beacon
+
+Auf der echten Kunden-Domain nach Deploy sind **keine** externen Requests mehr aktiv (nur eigene Domain für Assets, Emergent-Backend für Chat/Bewertung).
+
+- Prod-Build `yarn build` → Compiled successfully.
+- Screenshots: Design pixel-identisch zu vorher (Fraunces + Inter mit vollen Umlauten + Sonderzeichen).
