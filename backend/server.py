@@ -450,6 +450,7 @@ async def seed_data():
                 area=18,
                 pdf_url="https://www.immo-traeum.li/Objekte/Obj2214.pdf",
                 image_url="/media/lagerraum-800.webp",
+                video_url="/media/lagerraum.mp4",
                 description="Kühler Naturkeller, ideal für Wein, Vorräte oder Archiv.",
                 lat=47.4772,
                 lng=9.4885,
