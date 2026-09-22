@@ -1,0 +1,73 @@
+{
+  "center": {
+    "lat": 47.4775,
+    "lon": 9.488
+  },
+  "y_shift": -13.532398223876953,
+  "ground": {
+    "desktop": {
+      "bounds": {
+        "nw_lat": 47.483800867377965,
+        "nw_lon": 9.4757080078125,
+        "se_lat": 47.47080630593626,
+        "se_lon": 9.50042724609375
+      },
+      "size": [
+        4096,
+        3186
+      ],
+      "file": "ground.webp"
+    },
+    "mobile": {
+      "bounds": {
+        "nw_lat": 47.483800867377965,
+        "nw_lon": 9.4757080078125,
+        "se_lat": 47.468949677672484,
+        "se_lon": 9.503173828125
+      },
+      "size": [
+        2048,
+        1638
+      ],
+      "file": "ground-lite.webp"
+    }
+  },
+  "landmarks": [
+    {
+      "name": "Hafen Rorschach",
+      "kind": "harbor",
+      "x": 48.905302149500635,
+      "z": -207.05520000007112
+    },
+    {
+      "name": "Kornhaus",
+      "kind": "landmark",
+      "x": 125.64900706102881,
+      "z": -217.07400000008732
+    },
+    {
+      "name": "Bahnhof Rorschach Hafen",
+      "kind": "transport",
+      "x": -129.41095338007725,
+      "z": -45.64120000024957
+    },
+    {
+      "name": "Bahnhof Rorschach",
+      "kind": "transport",
+      "x": 371.68029633615134,
+      "z": -67.90520000019768
+    },
+    {
+      "name": "Seepromenade",
+      "kind": "path",
+      "x": -8.276281902173835,
+      "z": -116.88599999992533
+    },
+    {
+      "name": "Zentrum",
+      "kind": "city",
+      "x": 139.94440307394743,
+      "z": 53.43359999955908
+    }
+  ]
+}

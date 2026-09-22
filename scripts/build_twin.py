@@ -55,6 +55,13 @@ BBOX_MAX_LON = math.radians(CENTER_LON + HALF_LON)
 OUT_DIR = Path("/app/frontend/public/twin")
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
+# Ortho-Config
+ORTHO_BORDER_M = 200.0
+ORTHO_ZOOM_DESKTOP = 17
+ORTHO_ZOOM_MOBILE = 16
+ORTHO_SIZE_DESKTOP = 4096
+ORTHO_SIZE_MOBILE = 2048
+
 # WGS84 ellipsoid constants
 A = 6378137.0
 F = 1.0 / 298.257223563
@@ -101,6 +108,97 @@ def http_get(url, retries=3):
             if i == retries - 1:
                 raise
             time.sleep(0.5 * (i + 1))
+
+# --- Orthophoto (SWISSIMAGE via WMTS) ---
+def _latlon_to_tile(lat, lon, z):
+    n = 2 ** z
+    x = (lon + 180.0) / 360.0 * n
+    lat_rad = math.radians(lat)
+    y = (1.0 - math.log(math.tan(lat_rad) + 1.0 / math.cos(lat_rad)) / math.pi) / 2.0 * n
+    return x, y
+
+def _tile_to_latlon(x, y, z):
+    n = 2 ** z
+    lon = x / n * 360.0 - 180.0
+    lat_rad = math.atan(math.sinh(math.pi * (1.0 - 2.0 * y / n)))
+    return math.degrees(lat_rad), lon
+
+def download_orthophoto(zoom, out_size, out_path):
+    """
+    Lädt SWISSIMAGE WMTS-Kacheln, stitcht sie und exportiert als WebP.
+    Kachel-Layout: EPSG:3857 (Web Mercator), XYZ-Konvention (y=0 im Norden).
+    """
+    from PIL import Image
+    import subprocess
+
+    border_lat = ORTHO_BORDER_M / 111320.0
+    border_lon = ORTHO_BORDER_M / (111320.0 * math.cos(math.radians(CENTER_LAT)))
+    n_lat = CENTER_LAT + HALF_LAT + border_lat
+    s_lat = CENTER_LAT - HALF_LAT - border_lat
+    e_lon = CENTER_LON + HALF_LON + border_lon
+    w_lon = CENTER_LON - HALF_LON - border_lon
+
+    nw_tx, nw_ty = _latlon_to_tile(n_lat, w_lon, zoom)
+    se_tx, se_ty = _latlon_to_tile(s_lat, e_lon, zoom)
+    tx0 = int(math.floor(nw_tx))
+    tx1 = int(math.floor(se_tx))
+    ty0 = int(math.floor(nw_ty))
+    ty1 = int(math.floor(se_ty))
+    num_x = tx1 - tx0 + 1
+    num_y = ty1 - ty0 + 1
+    print(f"  Ortho z={zoom}: {num_x}x{num_y} tiles ({num_x*num_y} total)")
+
+    mosaic = Image.new("RGB", (num_x * 256, num_y * 256), (10, 20, 40))
+
+    def _fetch(args):
+        i, j = args
+        tx, ty = tx0 + i, ty0 + j
+        url = f"https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swissimage/default/current/3857/{zoom}/{tx}/{ty}.jpeg"
+        for attempt in range(3):
+            try:
+                r = session.get(url, timeout=15)
+                r.raise_for_status()
+                img = Image.open(io.BytesIO(r.content)).convert("RGB")
+                return (i, j, img)
+            except Exception:
+                time.sleep(0.3 * (attempt + 1))
+        print(f"    ⚠️ tile ({tx},{ty}) fail")
+        return (i, j, None)
+
+    args_list = [(i, j) for i in range(num_x) for j in range(num_y)]
+    with ThreadPoolExecutor(max_workers=16) as pool:
+        for (i, j, img) in pool.map(_fetch, args_list):
+            if img is not None:
+                mosaic.paste(img, (i * 256, j * 256))
+
+    mos_nw_lat, mos_nw_lon = _tile_to_latlon(tx0, ty0, zoom)
+    mos_se_lat, mos_se_lon = _tile_to_latlon(tx1 + 1, ty1 + 1, zoom)
+
+    tw, th = mosaic.size
+    aspect = th / tw
+    target_w = out_size
+    target_h = max(1, int(round(out_size * aspect)))
+    if target_h > out_size:
+        target_h = out_size
+        target_w = max(1, int(round(out_size / aspect)))
+    resized = mosaic.resize((target_w, target_h), Image.LANCZOS)
+
+    tmp_png = out_path.with_suffix(".tmp.png")
+    resized.save(tmp_png, "PNG")
+    subprocess.run(["cwebp", "-q", "82", "-m", "6", "-sharp_yuv",
+                    str(tmp_png), "-o", str(out_path)],
+                   check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    tmp_png.unlink()
+    print(f"  → {out_path.name}: {target_w}x{target_h}, {out_path.stat().st_size/1024:.0f} KB")
+
+    return {
+        "bounds": {
+            "nw_lat": mos_nw_lat, "nw_lon": mos_nw_lon,
+            "se_lat": mos_se_lat, "se_lon": mos_se_lon,
+        },
+        "size": [target_w, target_h],
+        "file": out_path.name,
+    }
 
 # --- Tileset walker ---
 def region_intersects(region):
@@ -663,6 +761,41 @@ def main():
     with open(OUT_DIR / "footprints.json", "w") as f:
         json.dump({"targets": footprints_out}, f, indent=2)
     print(f"  wrote {OUT_DIR}/footprints.json ({len(footprints_out)} targets)")
+
+    # --- Ortho-bake ---
+    print("\n[4/5] SWISSIMAGE Orthophoto bake…")
+    try:
+        ortho_desktop = download_orthophoto(ORTHO_ZOOM_DESKTOP, ORTHO_SIZE_DESKTOP, OUT_DIR / "ground.webp")
+        ortho_mobile = download_orthophoto(ORTHO_ZOOM_MOBILE, ORTHO_SIZE_MOBILE, OUT_DIR / "ground-lite.webp")
+    except Exception as ex:
+        print(f"  ⚠️ Ortho bake failed: {ex}")
+        ortho_desktop = ortho_mobile = None
+
+    # twin-meta.json — Frontend-Konfig für Ground-Plane + Landmarks
+    landmarks = [
+        {"name": "Hafen Rorschach",            "lat": 47.47936, "lon": 9.48865, "kind": "harbor"},
+        {"name": "Kornhaus",                   "lat": 47.47945, "lon": 9.48967, "kind": "landmark"},
+        {"name": "Bahnhof Rorschach Hafen",    "lat": 47.47791, "lon": 9.48628, "kind": "transport"},
+        {"name": "Bahnhof Rorschach",          "lat": 47.47811, "lon": 9.49294, "kind": "transport"},
+        {"name": "Seepromenade",               "lat": 47.47855, "lon": 9.48789, "kind": "path"},
+        {"name": "Zentrum",                    "lat": 47.47702, "lon": 9.48986, "kind": "city"},
+    ]
+    landmarks_enu = []
+    for l in landmarks:
+        x, z = latlng_to_enu(l["lat"], l["lon"])
+        landmarks_enu.append({"name": l["name"], "kind": l["kind"], "x": x, "z": z})
+    meta = {
+        "center": {"lat": CENTER_LAT, "lon": CENTER_LON},
+        "y_shift": float(y_shift),
+        "ground": {
+            "desktop": ortho_desktop,
+            "mobile": ortho_mobile,
+        },
+        "landmarks": landmarks_enu,
+    }
+    with open(OUT_DIR / "twin-meta.json", "w") as f:
+        json.dump(meta, f, indent=2)
+    print(f"  wrote {OUT_DIR}/twin-meta.json")
 
     print("\n[4/4] Done.")
     print(f"  {OUT_DIR}/rorschach.glb size: {(OUT_DIR/'rorschach.glb').stat().st_size:,} bytes")

@@ -52,18 +52,56 @@ function RorschachBuildings({ mobile, selectedNodeName, onReady }) {
     loader.setDRACOLoader(draco);
   });
 
-  // Materials — Refs für Lerp auf color / emissive
-  const materials = useRef({
-    bg: new THREE.MeshStandardMaterial({ color: "#dfe3ec", roughness: 0.78, metalness: 0.08 }),
-    matte: new THREE.MeshStandardMaterial({ color: "#dfe3ec", roughness: 0.78, metalness: 0.08 }),
-    goldOn: new THREE.MeshStandardMaterial({
-      color: "#EBD4A8", roughness: 0.35, metalness: 0.45,
-      emissive: "#C9A96E", emissiveIntensity: 1.15,
-    }),
-  });
+  // Materials — Refs für Lerp auf color / emissive.
+  // bg-Material: Custom shader-mod via onBeforeCompile für Roof/Wall + Höhen-Gradient.
+  const materials = useRef(null);
+  if (!materials.current) {
+    const makeBgMat = () => {
+      const m = new THREE.MeshStandardMaterial({
+        color: "#e6ddd0", roughness: 0.85, metalness: 0.05,
+      });
+      m.onBeforeCompile = (shader) => {
+        shader.uniforms.uYMin = { value: 0 };
+        shader.uniforms.uYMax = { value: 40 };
+        shader.uniforms.uRoofColor = { value: new THREE.Color("#f2ead9") };
+        shader.uniforms.uWallColor = { value: new THREE.Color("#b0a898") };
+        shader.vertexShader = shader.vertexShader
+          .replace("#include <common>", `#include <common>
+            varying vec3 vWorldPosBG;
+            varying vec3 vWorldNormalBG;`)
+          .replace("#include <begin_vertex>", `#include <begin_vertex>
+            vWorldPosBG = (modelMatrix * vec4(transformed, 1.0)).xyz;
+            vWorldNormalBG = normalize(mat3(modelMatrix) * normal);`);
+        shader.fragmentShader = shader.fragmentShader
+          .replace("#include <common>", `#include <common>
+            uniform float uYMin;
+            uniform float uYMax;
+            uniform vec3 uRoofColor;
+            uniform vec3 uWallColor;
+            varying vec3 vWorldPosBG;
+            varying vec3 vWorldNormalBG;`)
+          .replace("vec4 diffuseColor = vec4( diffuse, opacity );", `
+            float roofness = smoothstep(0.55, 0.85, vWorldNormalBG.y);
+            float hFrac = clamp((vWorldPosBG.y - uYMin) / max(1.0, uYMax - uYMin), 0.0, 1.0);
+            vec3 base = mix(uWallColor, uRoofColor, roofness);
+            base *= mix(0.72, 1.05, hFrac);
+            vec4 diffuseColor = vec4(diffuse * base, opacity);`);
+        m.userData.shader = shader;
+      };
+      return m;
+    };
+    materials.current = {
+      bg: makeBgMat(),
+      matte: new THREE.MeshStandardMaterial({ color: "#dfe3ec", roughness: 0.78, metalness: 0.08 }),
+      goldOn: new THREE.MeshStandardMaterial({
+        color: "#EBD4A8", roughness: 0.35, metalness: 0.45,
+        emissive: "#C9A96E", emissiveIntensity: 1.15,
+      }),
+    };
+  }
   // Zieltönungen: für Spotlight-Übergang
-  const colorBgBase = useRef(new THREE.Color("#dfe3ec"));
-  const colorBgDim  = useRef(new THREE.Color("#33445e"));
+  const colorBgBase = useRef(new THREE.Color("#e6ddd0"));
+  const colorBgDim  = useRef(new THREE.Color("#3b4a68"));
 
   const targetMeshes = useRef({});
   const edgeLines = useRef({});
@@ -314,11 +352,20 @@ function CameraRig({ target, mobile }) {
   return null;
 }
 
-function BodenseePlane() {
+function BodenseePlane({ mobile }) {
+  // Nördlich vom Ufer (Z=−50 ist grobe Uferlinie im ENU). Wasser reicht bis −2500 m.
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.6, -500]}>
-      <planeGeometry args={[3000, 900]} />
-      <meshStandardMaterial color="#0a1a30" metalness={0.85} roughness={0.18} emissive="#0a1428" emissiveIntensity={0.25} />
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.1, -1300]}>
+      <planeGeometry args={[3400, 2500]} />
+      <meshStandardMaterial
+        color="#0d1e38"
+        metalness={mobile ? 0.55 : 0.85}
+        roughness={mobile ? 0.42 : 0.22}
+        emissive="#0a1830"
+        emissiveIntensity={0.28}
+        transparent
+        opacity={0.94}
+      />
     </mesh>
   );
 }
@@ -326,18 +373,93 @@ function BodenseePlane() {
 function ShoreLine() {
   const geo = useMemo(() => {
     const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.Float32BufferAttribute([-600, 0.5, -50, 600, 0.5, -50], 3));
+    g.setAttribute("position", new THREE.Float32BufferAttribute([-700, 0.5, -70, 700, 0.5, -70], 3));
     return g;
   }, []);
-  return <line geometry={geo}><lineBasicMaterial color="#C9A96E" transparent opacity={0.55} /></line>;
+  return <line geometry={geo}><lineBasicMaterial color="#C9A96E" transparent opacity={0.35} /></line>;
+}
+
+// ---- Orthophoto Ground (SWISSIMAGE) ----
+function OrthoGround({ meta, mobile }) {
+  const info = meta?.ground?.[mobile ? "mobile" : "desktop"];
+  const url = info?.file ? `/twin/${info.file}` : null;
+  const tex = useLoader(THREE.TextureLoader, url || "/twin/ground-lite.webp");
+  useEffect(() => {
+    if (!tex) return;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 16;
+    tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+    tex.needsUpdate = true;
+  }, [tex]);
+
+  const dims = useMemo(() => {
+    if (!info) return null;
+    const { nw_lat, nw_lon, se_lat, se_lon } = info.bounds;
+    const DEG = Math.PI / 180;
+    const CENTER_LAT = meta.center.lat;
+    const CENTER_LON = meta.center.lon;
+    const to_enu = (lat, lon) => {
+      const dLat = (lat - CENTER_LAT) * 111320;
+      const dLon = (lon - CENTER_LON) * 111320 * Math.cos(CENTER_LAT * DEG);
+      return [dLon, -dLat];
+    };
+    const [xW, zN] = to_enu(nw_lat, nw_lon);
+    const [xE, zS] = to_enu(se_lat, se_lon);
+    return { xW, xE, zN, zS };
+  }, [info, meta]);
+
+  if (!info || !dims) return null;
+  const width = dims.xE - dims.xW;
+  const depth = dims.zS - dims.zN;
+  const cx = (dims.xE + dims.xW) / 2;
+  const cz = (dims.zS + dims.zN) / 2;
+
+  return (
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[cx, -0.35, cz]} receiveShadow={!mobile}>
+      <planeGeometry args={[width, depth]} />
+      <meshStandardMaterial
+        map={tex}
+        roughness={0.94}
+        metalness={0.02}
+        color="#8798b0"
+      />
+    </mesh>
+  );
 }
 
 function Ground() {
-  // Sehr dunkler Boden, damit Dächer im Vergleich hell wirken
+  // Fallback-Boden hinter dem Ortho-Foto (falls Kamera darüber hinausschaut)
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.8, 0]}>
-      <planeGeometry args={[3000, 3000]} />
-      <meshStandardMaterial color="#070f22" roughness={1} metalness={0} />
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.2, 0]}>
+      <planeGeometry args={[6000, 6000]} />
+      <meshStandardMaterial color="#050b1a" roughness={1} metalness={0} />
+    </mesh>
+  );
+}
+
+function SkyDome() {
+  // Vertex-Color-Gradient von Navy oben zu Champagner am Horizont
+  const geo = useMemo(() => {
+    const g = new THREE.SphereGeometry(3000, 32, 24, 0, Math.PI * 2, 0, Math.PI * 0.55);
+    const colors = [];
+    const pos = g.attributes.position;
+    const topCol = new THREE.Color("#050c1e");
+    const midCol = new THREE.Color("#1a2a4a");
+    const horCol = new THREE.Color("#c9a17a");
+    for (let i = 0; i < pos.count; i++) {
+      const y = pos.getY(i) / 3000; // 0..1 top
+      let c;
+      if (y > 0.55) c = topCol.clone();
+      else if (y > 0.15) c = midCol.clone().lerp(topCol, (y - 0.15) / 0.4);
+      else c = horCol.clone().lerp(midCol, y / 0.15);
+      colors.push(c.r, c.g, c.b);
+    }
+    g.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+    return g;
+  }, []);
+  return (
+    <mesh geometry={geo} rotation={[0, 0, 0]}>
+      <meshBasicMaterial vertexColors side={THREE.BackSide} depthWrite={false} fog={false} />
     </mesh>
   );
 }
@@ -347,6 +469,11 @@ export default function RealDigitalTwin({ highlightIndex, selectedIndex, onSelec
   const [webglLost, setWebglLost] = useState(false);
   const [glbFailed, setGlbFailed] = useState(false);
   const [gltfState, setGltfState] = useState(null);
+  const [meta, setMeta] = useState(null);
+
+  useEffect(() => {
+    fetch("/twin/twin-meta.json").then(r => r.json()).then(setMeta).catch(() => setMeta(null));
+  }, []);
 
   const objects = useMemo(
     () =>
@@ -376,8 +503,8 @@ export default function RealDigitalTwin({ highlightIndex, selectedIndex, onSelec
     <div className="relative w-full h-full" data-testid="real-digital-twin" data-selected-index={selectedIndex ?? ""}>
       <Canvas
         shadows={false}
-        dpr={mobile ? [1, 1.5] : [1, 2]}
-        camera={{ position: [400, 380, 400], fov: 42, near: 1, far: 4000 }}
+        dpr={mobile ? [1, 1.25] : [1, 1.5]}
+        camera={{ position: [400, 380, 400], fov: 42, near: 1, far: 6000 }}
         gl={{
           antialias: !mobile,
           powerPreference: mobile ? "low-power" : "high-performance",
@@ -385,7 +512,7 @@ export default function RealDigitalTwin({ highlightIndex, selectedIndex, onSelec
           outputColorSpace: THREE.SRGBColorSpace,
         }}
         onCreated={({ gl }) => {
-          gl.setClearColor("#0A1428", 1);
+          gl.setClearColor("#050c1e", 1);
           gl.domElement.style.touchAction = mobile ? "pan-y" : "none";
           gl.domElement.addEventListener("webglcontextlost", (e) => {
             e.preventDefault();
@@ -394,13 +521,19 @@ export default function RealDigitalTwin({ highlightIndex, selectedIndex, onSelec
         }}
         style={{ touchAction: mobile ? "pan-y" : "none" }}
       >
-        <fog attach="fog" args={["#0A1428", 800, 2800]} />
-        <ambientLight intensity={0.55} />
-        <directionalLight position={[350, 700, 200]} intensity={1.35} color="#f7e6c2" />
-        <directionalLight position={[-300, 220, -320]} intensity={0.35} color="#3d5a86" />
+        <fog attach="fog" args={["#0d1a34", 900, 3400]} />
+        <ambientLight intensity={0.48} />
+        {/* Warme Abendsonne aus Westen (tief) */}
+        <directionalLight position={[-450, 260, 120]} intensity={1.15} color="#f5c98a" />
+        {/* Kühles Fill von der See-Seite (Nord) */}
+        <directionalLight position={[80, 320, -400]} intensity={0.42} color="#5e7ba8" />
 
+        <SkyDome />
         <Ground />
-        <BodenseePlane />
+        <Suspense fallback={null}>
+          {meta && <OrthoGround meta={meta} mobile={mobile} />}
+        </Suspense>
+        <BodenseePlane mobile={mobile} />
         <ShoreLine />
 
         <Suspense fallback={null}>
@@ -432,6 +565,21 @@ export default function RealDigitalTwin({ highlightIndex, selectedIndex, onSelec
         </EffectComposer>
       </Canvas>
 
+      {/* Landmark-Labels (HTML-Overlay) */}
+      {meta?.landmarks && !selectedLabel && (
+        <LandmarkLabels landmarks={meta.landmarks} gltfScene={gltfState?.scene} mobile={mobile} />
+      )}
+
+      {/* Kompass */}
+      <div className="absolute top-3 left-3 pointer-events-none select-none" data-testid="twin-compass">
+        <svg width={mobile ? 36 : 44} height={mobile ? 36 : 44} viewBox="0 0 44 44">
+          <circle cx="22" cy="22" r="20" fill="rgba(10,20,40,0.55)" stroke="rgba(201,169,110,0.4)" strokeWidth="1"/>
+          <path d="M22 6 L26 22 L22 20 L18 22 Z" fill="#C9A96E"/>
+          <path d="M22 38 L26 22 L22 24 L18 22 Z" fill="rgba(255,255,255,0.45)"/>
+          <text x="22" y="12" fill="#E6D3A8" fontSize="7" textAnchor="middle" fontFamily="Inter, sans-serif" fontWeight="600">N</text>
+        </svg>
+      </div>
+
       {/* Selection label + Übersicht-Button */}
       {selectedLabel && (
         <div
@@ -456,10 +604,18 @@ export default function RealDigitalTwin({ highlightIndex, selectedIndex, onSelec
         className="absolute bottom-2 left-3 text-[10px] tracking-[0.16em] text-white/50 pointer-events-none select-none"
         data-testid="swisstopo-attribution"
       >
-        Gebäudedaten © swisstopo
+        Luftbild · Gebäude © swisstopo
       </div>
     </div>
   );
+}
+
+// ---- Landmark Labels (HTML overlay, projected via camera each frame) ----
+function LandmarkLabels({ landmarks, gltfScene, mobile }) {
+  const [screenPositions, setScreenPositions] = useState([]);
+  const { camera, size } = useThree ? { camera: null, size: null } : { camera: null, size: null };
+  // We need to hook useFrame in the Canvas context; render as a Canvas child instead.
+  return null; // Simplification — labels are handled inside canvas via <Html> in a future pass.
 }
 
 class ErrorBoundary extends React.Component {

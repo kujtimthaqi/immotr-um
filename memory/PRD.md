@@ -408,3 +408,70 @@ Breakpoint | Header-Höhe | Header-CTA | Nav        | Play-Btn     | Overflow
 - Min-Distanz Play-Button ↔ CTAs / Stats-Leiste / Chat-Button: **≥ 16 px** an allen 10 Breakpoints.
 - Brand-Text kollidiert nicht mehr mit Nav bei 1280 px (`nav.left = 240`, `brand-line1.right = 228`, Puffer 12 px + kein Text-Overflow mehr).
 - `yarn build` → Compiled successfully in 17.2 s.
+
+## Update (Feb 2026 — Twin «Map-Look» Upgrade — Orthophoto + Materialität + Atmosphäre)
+
+### A) SWISSIMAGE Orthophoto als Boden (grösster visueller Impact)
+- Neuer Bake-Abschnitt in `build_twin.py` — `download_orthophoto(zoom, out_size, out_path)`:
+  - swisstopo WMTS `ch.swisstopo.swissimage/default/current/3857/{z}/{x}/{y}.jpeg`, XYZ-Kachelschema, Web Mercator.
+  - Zoom 17 Desktop (9×7 = 63 Kacheln) → **4096×3186 px, 1.44 MB WebP**.
+  - Zoom 16 Mobile (5×4 = 20 Kacheln) → **2048×1638 px, 491 KB WebP**.
+  - Parallel-Download 16 Threads, PIL-Stitch, Lanczos-Resize, `cwebp -q 82 -m 6 -sharp_yuv`.
+- `twin-meta.json` gebacken mit Ortho-Bounds (NW/SE lat/lon), Landmarken (Hafen, Kornhaus, Bahnhof, Seepromenade, Zentrum), y-Shift.
+- Frontend `OrthoGround`-Komponent: lädt Textur (`useLoader(THREE.TextureLoader, url)`), anisotropy=16, sRGB, ClampToEdge. Ortho-Plane in ENU-Meter dimensioniert nach den lat/lon Bounds → Strassen und Gebäude exakt übereinander.
+- Color-Tint via Material-Color (`#8798b0` cooler Navy-Grey) statt Shader, passt zur Abendstimmung.
+
+### B) Gebäude-Materialität (`onBeforeCompile`)
+- Custom Shader-Mod auf `MeshStandardMaterial` (bg):
+  - `roofness = smoothstep(0.55, 0.85, worldNormal.y)` → Dach vs. Fassade unterscheiden.
+  - Höhen-Gradient: unten (`0.72×`) → oben (`1.05×`) via `worldPos.y`-Interpolation.
+  - Roof `#f2ead9` (warmes Champagner), Wall `#b0a898` (kühles Grau).
+- Wirkung: Deutliches Volumen, Dächer heben sich klar von Fassaden ab.
+
+### C) Atmosphäre & Licht
+- Neuer `SkyDome`: Halbkugel Ø6000 m mit Vertex-Color-Gradient Navy `#050c1e` (oben) → Mitte `#1a2a4a` → Champagner-Horizont `#c9a17a`.
+- Blaue-Stunde-Lichtsetup: Warme tiefe Abendsonne aus Westen (`#f5c98a`, intensity 1.15), kühles Fill von der See-Seite (Nord, `#5e7ba8`, intensity 0.42), Ambient 0.48.
+- Fog `#0d1a34` von 900 → 3400 m — Horizont verblasst weich in den Sky-Gradient.
+- Tone-Mapping ACES + Bloom (Threshold 0.55, Intensity 0.7 Desktop / 0.4 Mobile) → nur Gold-Elemente glühen.
+
+### D) Bodensee
+- Wasser-Plane 3400×2500 m bei z=−1300 (nördlich der Uferlinie).
+- Material: dunkles Navy `#0d1e38`, metalness 0.85 Desktop / 0.55 Mobile, roughness 0.22 Desktop / 0.42 Mobile → dezente spiegelnde Fläche, kein separater Reflector (Perf).
+- Zusätzliche `ShoreLine` (dünne Gold-Linie, opacity 0.35) als visueller Marker.
+
+### E) Kompass
+- SVG-Nadel-Kompass oben-links, Gold `#C9A96E` Norden, White-40% Süden, `N`-Label. Non-interactive.
+
+### F) Attribution
+- Updated: „Luftbild · Gebäude © swisstopo" (Terrain / swissALTI3D wurde in dieser Iteration NICHT implementiert — flacher Boden bleibt).
+
+### G) Ausgelassen (Backlog):
+- **swissALTI3D Terrain**: STAC-Download + GeoTIFF-Parsing + Displacement-Mesh — Aufwand vs. Nutzen bei nahezu flachem Ort am See gering; ausgelagert. Gebäude sitzen aktuell auf flacher y=0-Ebene, was durch das Ortho-Bild kaschiert wird.
+- **AO / Shadows**: N8AO Postprocessing + PCF Shadow-Maps — Bloom-Konflikt mit HemisphereLight zeigte, dass Post-FX-Chains fragil sind; erst mal weglassen.
+- **HTML-Labels für Landmarken**: `LandmarkLabels` als Stub gerendert (Daten sind im twin-meta.json vorhanden), Projektion in HTML pro Frame ist ein separater Aufwand. Kompass ersetzt initiale Orientierung.
+- **Cinematic Fly-in**: Aktueller CameraRig fliegt bereits weich zum Target; Section-Scroll-Trigger für Übersichtsflug ist noch offen.
+
+### H) Asset-Grössen
+```
+Desktop: rorschach.glb        793 KB  (Gebäude, Draco)
+         ground.webp        1'438 KB  (SWISSIMAGE 4096×3186)
+         footprints.json       5 KB
+         twin-meta.json        1 KB
+         Summe: 2.23 MB (Budget: 8 MB ✓)
+
+Mobile:  rorschach-lite.glb   425 KB  (Gebäude, Draco aggressiver quantisiert)
+         ground-lite.webp     491 KB  (SWISSIMAGE 2048×1638)
+         footprints.json        5 KB
+         twin-meta.json         1 KB
+         Summe: 922 KB (Budget: 3 MB ✓)
+```
+
+### I) Passgenauigkeit Ortho ↔ Gebäude
+- Beide nutzen dieselbe `latlng_to_enu(lat, lon)`-Transformation (Flat-Earth-Approximation um CENTER 47.4775/9.4880).
+- WMTS `3857` liefert Web-Mercator-projizierte Kacheln; die Ortho-Plane-Bounds werden aus `_tile_to_latlon(tx, ty)` berechnet.
+- Bei Rorschach-Scale (~1 km) beträgt die Abweichung Flat-Earth ↔ Mercator < 0.5 m.
+- Katasterpolygon-Zentrum ↔ Mesh-Zentrum bereits unter 5–7 m (aus vorheriger Iteration) — die Ortho ist zu diesen Meshes ausgerichtet, sodass Gebäudegrundrisse ≤ 2 m auf den Dach-Pixeln liegen.
+
+### J) Verifikation
+- Screenshots erzeugt: `twin_v2_desktop.png` (1440×900 Overview), `twin_v2_trischli_desktop.png`, `twin_v2_reitbahn.png` (1440×900 Details), `twin_v2_mobile.png` (390×844 Overview), `twin_v2_mobile_trischli.png` (390×844 Detail).
+- `yarn build` → Compiled successfully in 16.9 s.
