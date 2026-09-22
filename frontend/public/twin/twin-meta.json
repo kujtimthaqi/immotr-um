@@ -85,5 +85,37 @@
       "x": 139.94440307394743,
       "z": 53.43359999955908
     }
-  ]
+  ],
+  "ao": {
+    "desktop": {
+      "file": "ao.webp",
+      "size": [
+        1024,
+        796
+      ]
+    },
+    "mobile": {
+      "file": "ao-lite.webp",
+      "size": [
+        512,
+        410
+      ]
+    }
+  },
+  "terrain": {
+    "desktop": {
+      "file": "terrain.bin",
+      "grid": 96,
+      "min": -0.100006103515625,
+      "max": 77.39999389648438
+    },
+    "mobile": {
+      "file": "terrain-lite.bin",
+      "grid": 48,
+      "min": -0.100006103515625,
+      "max": 77.29998779296875
+    },
+    "level_m": 395.6
+  },
+  "attribution": "Luftbild \u00b7 H\u00f6henmodell \u00b7 Geb\u00e4ude \u00a9 swisstopo"
 }

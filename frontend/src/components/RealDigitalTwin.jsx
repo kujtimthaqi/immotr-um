@@ -404,14 +404,42 @@ function CameraRig({ target, mobile, inView }) {
   return null;
 }
 
-// ---- Orthophoto Ground with Water Mask (SWISSIMAGE) ----
-function OrthoGround({ meta, mobile, dayMode }) {
+// ---- Orthophoto Ground with Terrain, AO, Water (SWISSIMAGE + swissALTI3D) ----
+function OrthoGround({ meta, mobile, dayMode, onDbg }) {
   const info = meta?.ground?.[mobile ? "mobile" : "desktop"];
   const waterInfo = meta?.water_mask?.[mobile ? "mobile" : "desktop"];
+  const aoInfo = meta?.ao?.[mobile ? "mobile" : "desktop"];
+  const terrainInfo = meta?.terrain?.[mobile ? "mobile" : "desktop"];
   const tex = useLoader(THREE.TextureLoader, info?.file ? `/twin/${info.file}` : "/twin/ground-lite.webp");
   const maskTex = useLoader(THREE.TextureLoader, waterInfo?.file ? `/twin/${waterInfo.file}` : `/twin/${info?.file || "ground-lite.webp"}`);
+  const aoTex = useLoader(THREE.TextureLoader, aoInfo?.file ? `/twin/${aoInfo.file}` : "/twin/ground-lite.webp");
   const materialRef = useRef();
   const { camera } = useThree();
+
+  // Terrain: Float32 DataTexture (WebGL2 RED_FLOAT)
+  const [terrainTex, setTerrainTex] = useState(null);
+  useEffect(() => {
+    if (!terrainInfo?.file) return;
+    let cancelled = false;
+    fetch(`/twin/${terrainInfo.file}`)
+      .then((r) => r.arrayBuffer())
+      .then((buf) => {
+        if (cancelled) return;
+        const N = terrainInfo.grid;
+        const arr = new Float32Array(buf);
+        if (arr.length !== N * N) {
+          console.warn("[twin] terrain size mismatch", arr.length, "expected", N * N);
+        }
+        const dt = new THREE.DataTexture(arr, N, N, THREE.RedFormat, THREE.FloatType);
+        dt.wrapS = dt.wrapT = THREE.ClampToEdgeWrapping;
+        dt.minFilter = THREE.LinearFilter;
+        dt.magFilter = THREE.LinearFilter;
+        dt.needsUpdate = true;
+        setTerrainTex(dt);
+      })
+      .catch((e) => console.warn("[twin] terrain fetch failed", e));
+    return () => { cancelled = true; };
+  }, [terrainInfo?.file, terrainInfo?.grid]);
 
   useEffect(() => {
     if (tex) {
@@ -427,7 +455,14 @@ function OrthoGround({ meta, mobile, dayMode }) {
       maskTex.magFilter = THREE.LinearFilter;
       maskTex.needsUpdate = true;
     }
-  }, [tex, maskTex]);
+    if (aoTex) {
+      aoTex.colorSpace = THREE.NoColorSpace;
+      aoTex.wrapS = aoTex.wrapT = THREE.ClampToEdgeWrapping;
+      aoTex.minFilter = THREE.LinearFilter;
+      aoTex.magFilter = THREE.LinearFilter;
+      aoTex.needsUpdate = true;
+    }
+  }, [tex, maskTex, aoTex]);
 
   const dims = useMemo(() => {
     if (!info) return null;
@@ -448,6 +483,9 @@ function OrthoGround({ meta, mobile, dayMode }) {
   const uniforms = useMemo(() => ({
     uOrtho: { value: tex },
     uWaterMask: { value: maskTex },
+    uAO: { value: aoTex },
+    uTerrain: { value: terrainTex },
+    uHasTerrain: { value: terrainTex ? 1.0 : 0.0 },
     uTime: { value: 0 },
     uCameraPos: { value: new THREE.Vector3() },
     uOrthoTint: { value: new THREE.Color("#98a5b7") },
@@ -459,14 +497,21 @@ function OrthoGround({ meta, mobile, dayMode }) {
     fogColor: { value: new THREE.Color("#0d1a34") },
     fogNear: { value: 900 },
     fogFar: { value: 3400 },
-  }), [tex, maskTex]);
+  }), [tex, maskTex, aoTex, terrainTex]);
+
+  useEffect(() => {
+    if (!materialRef.current) return;
+    materialRef.current.uniforms.uTerrain.value = terrainTex;
+    materialRef.current.uniforms.uHasTerrain.value = terrainTex ? 1.0 : 0.0;
+    materialRef.current.uniformsNeedUpdate = true;
+    onDbg?.({ terrainLoaded: !!terrainTex });
+  }, [terrainTex, onDbg]);
 
   useFrame((state, dt) => {
     if (!materialRef.current) return;
     const u = materialRef.current.uniforms;
     u.uTime.value += dt;
     u.uCameraPos.value.copy(camera.position);
-    // Day mode lerp
     const target = dayMode ? 1.0 : 0.0;
     u.uDayMix.value += (target - u.uDayMix.value) * Math.min(1, dt * 2.0);
   });
@@ -476,10 +521,13 @@ function OrthoGround({ meta, mobile, dayMode }) {
   const depth = dims.zS - dims.zN;
   const cx = (dims.xE + dims.xW) / 2;
   const cz = (dims.zS + dims.zN) / 2;
+  const segs = terrainInfo?.grid
+    ? (mobile ? Math.max(1, terrainInfo.grid - 1) : Math.max(1, (terrainInfo.grid - 1) * 2))
+    : (mobile ? 47 : 191);
 
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[cx, -0.15, cz]}>
-      <planeGeometry args={[width, depth, 1, 1]} />
+      <planeGeometry args={[width, depth, segs, segs]} />
       <shaderMaterial
         ref={materialRef}
         uniforms={uniforms}
@@ -491,17 +539,28 @@ function OrthoGround({ meta, mobile, dayMode }) {
   );
 }
 
-// GLSL for ortho + water shader (fog-aware)
+// GLSL for ortho + water shader (fog-aware) — vertex displacement from terrain heightmap
 const GROUND_VERT = `
+  uniform sampler2D uTerrain;
+  uniform float uHasTerrain;
   varying vec2 vUvG;
   varying vec3 vWorldPosG;
+  varying float vTerrainH;
   #include <fog_pars_vertex>
   void main() {
     vUvG = uv;
-    vec4 wp = modelMatrix * vec4(position, 1.0);
+    vec3 pos = position;
+    float h = 0.0;
+    if (uHasTerrain > 0.5) {
+      h = texture2D(uTerrain, uv).r;
+      // Plane liegt lokal in XY, rotiert -PI/2 um X → lokales +Z entspricht Welt-Y (Up).
+      pos.z += h;
+    }
+    vTerrainH = h;
+    vec4 wp = modelMatrix * vec4(pos, 1.0);
     vWorldPosG = wp.xyz;
-    vec4 mvp = viewMatrix * wp;
-    gl_Position = projectionMatrix * mvp;
+    vec4 mvPosition = viewMatrix * wp;
+    gl_Position = projectionMatrix * mvPosition;
     #include <fog_vertex>
   }
 `;
@@ -509,6 +568,7 @@ const GROUND_VERT = `
 const GROUND_FRAG = `
   uniform sampler2D uOrtho;
   uniform sampler2D uWaterMask;
+  uniform sampler2D uAO;
   uniform float uTime;
   uniform vec3 uCameraPos;
   uniform vec3 uOrthoTint;
@@ -519,6 +579,7 @@ const GROUND_FRAG = `
   uniform float uDayMix;
   varying vec2 vUvG;
   varying vec3 vWorldPosG;
+  varying float vTerrainH;
   #include <fog_pars_fragment>
 
   float hash21(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -535,10 +596,12 @@ const GROUND_FRAG = `
   void main() {
     // Ortho sample
     vec3 orthoRaw = texture2D(uOrtho, vUvG).rgb;
+    // Kontakt-AO (aus Baker): grey ≈ 1 unter freiem Himmel, dunkler unter Gebäuden
+    float ao = texture2D(uAO, vUvG).r;
     vec3 orthoTinted = orthoRaw * uOrthoTint * uOrthoBrightness;
-    // Day mode: ortho closer to raw, less tint, brighter
     vec3 orthoDay = orthoRaw * vec3(1.05, 1.02, 0.98) * 1.1;
     vec3 ortho = mix(orthoTinted, orthoDay, uDayMix);
+    ortho *= ao;
 
     // Water mask (smoothed)
     float mask = texture2D(uWaterMask, vUvG).r;
@@ -548,7 +611,7 @@ const GROUND_FRAG = `
     vec2 wp = vWorldPosG.xz;
     float n1 = valueNoise(wp * 0.08 + vec2(uTime * 0.12, uTime * 0.09));
     float n2 = valueNoise(wp * 0.05 - vec2(uTime * 0.07, uTime * 0.11));
-    float ripple = (n1 + n2 - 1.0);  // -1..1
+    float ripple = (n1 + n2 - 1.0);
 
     // Fresnel toward camera
     vec3 toCam = normalize(uCameraPos - vWorldPosG);
@@ -556,7 +619,6 @@ const GROUND_FRAG = `
 
     vec3 waterCol = mix(uWaterColorDeep, uWaterColorSurface, 0.5 + ripple * 0.35);
     waterCol = mix(waterCol, uHorizonColor, fres * 0.42);
-    // Day water brighter, teal-shift
     vec3 waterDay = mix(vec3(0.06, 0.22, 0.36), vec3(0.14, 0.34, 0.48), 0.5 + ripple * 0.3);
     waterDay = mix(waterDay, vec3(0.85, 0.75, 0.55), fres * 0.30);
     waterCol = mix(waterCol, waterDay, uDayMix);
@@ -874,23 +936,76 @@ export default function RealDigitalTwin({ highlightIndex, selectedIndex, onSelec
         className="absolute bottom-2 left-3 text-[10px] tracking-[0.16em] text-white/50 pointer-events-none select-none"
         data-testid="swisstopo-attribution"
       >
-        Luftbild · Gebäude © swisstopo
+        {meta?.attribution || "Luftbild · Höhenmodell · Gebäude © swisstopo"}
       </div>
     </div>
   );
 }
 
-// ---- Landmark labels in canvas (drei <Html>) ----
+// ---- Landmark labels in canvas (drei <Html>) with collision resolve ----
 function LandmarksInCanvas({ landmarks, mobile, gltfScene }) {
   const list = useMemo(() => {
-    // Priorität: Landmarken mit "harbor", "landmark" höher; auf Mobile max 4
     const p = { harbor: 1, landmark: 2, transport: 3, path: 4, city: 5 };
     const sorted = [...landmarks].sort((a, b) => (p[a.kind] ?? 9) - (p[b.kind] ?? 9));
-    return mobile ? sorted.slice(0, 4) : sorted.slice(0, 6);
+    return (mobile ? sorted.slice(0, 4) : sorted.slice(0, 6)).map((l, i) => ({
+      ...l, priority: p[l.kind] ?? 9, idx: i,
+    }));
   }, [landmarks, mobile]);
+
+  const wrapRefs = useRef({});
+  const frameCount = useRef(0);
+  const { camera, gl, size } = useThree();
+
+  useFrame(() => {
+    frameCount.current++;
+    if (frameCount.current % 10 !== 0) return; // alle 10 Frames
+    // 2D-Screen-AABBs berechnen
+    const boxes = [];
+    const w = size.width;
+    const h = size.height;
+    for (const l of list) {
+      const el = wrapRefs.current[l.name];
+      if (!el) continue;
+      // Reset visibility so hidden-then-becomes-visible cases work
+      el.style.transition = "opacity 220ms ease-out";
+      const r = el.getBoundingClientRect();
+      const canvasRect = gl.domElement.getBoundingClientRect();
+      const x0 = r.left - canvasRect.left;
+      const y0 = r.top - canvasRect.top;
+      const x1 = x0 + r.width;
+      const y1 = y0 + r.height;
+      // discard offscreen (behind cam or outside)
+      if (r.width === 0 || r.height === 0 || x1 < 0 || y1 < 0 || x0 > w || y0 > h) {
+        el.style.opacity = "0";
+        continue;
+      }
+      boxes.push({ name: l.name, priority: l.priority, box: [x0, y0, x1, y1], el });
+    }
+    // sort by priority ascending (lower number = higher priority)
+    boxes.sort((a, b) => a.priority - b.priority);
+    const kept = [];
+    for (const cur of boxes) {
+      let overlap = false;
+      for (const k of kept) {
+        const [ax0, ay0, ax1, ay1] = cur.box;
+        const [bx0, by0, bx1, by1] = k.box;
+        // Pad 4 px
+        if (ax0 < bx1 + 4 && ax1 > bx0 - 4 && ay0 < by1 + 4 && ay1 > by0 - 4) {
+          overlap = true; break;
+        }
+      }
+      if (overlap) {
+        cur.el.style.opacity = "0";
+      } else {
+        cur.el.style.opacity = "1";
+        kept.push(cur);
+      }
+    }
+  });
+
   return (
     <group>
-      {list.map((l, i) => {
+      {list.map((l) => {
         const y = gltfScene ? raycastYAt(gltfScene, l.x, l.z) : 5;
         return (
           <Html
@@ -902,7 +1017,12 @@ function LandmarksInCanvas({ landmarks, mobile, gltfScene }) {
             zIndexRange={[10, 0]}
             style={{ pointerEvents: "none" }}
           >
-            <div className="landmark-pill" data-testid={`landmark-${i}`}>
+            <div
+              className="landmark-pill"
+              data-testid={`landmark-${l.idx}`}
+              ref={(el) => { if (el) wrapRefs.current[l.name] = el; }}
+              style={{ opacity: 1 }}
+            >
               {l.name}
             </div>
           </Html>

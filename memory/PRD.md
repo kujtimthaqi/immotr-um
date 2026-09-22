@@ -542,3 +542,63 @@ Budget                  8.00 MB    3.00 MB  ✓
 - Tag/Abend-Toggle funktional; Übergang 0.8 s Uniform-Lerp.
 - Bodensee-Fläche folgt Uferlinie (Wassermaske), rechteckige Plane weg.
 - `yarn build` grün (23 s).
+
+
+## Update (Feb 2026 — Twin Refinement Round 3: Water + Terrain + AO)
+Ergänzt & versendet ohne Deploy. Neuer Script `/app/scripts/refine_twin.py` post-baket auf bestehendem GLB/Ortho.
+
+### A) Wassermaske abgesichert
+- HSV-Maske → connected components (`scipy.ndimage.label`), nur grösste **Nordkanten-Komponente** behalten (3.5 M Pixel).
+- Gebäude-Footprints (aus `rorschach.glb`, per-Primitive y_min+2 m Slab, XZ-Projektion) + **3 m Puffer** subtrahiert.
+- **Bodensee-Polygon** von geo.admin.ch (`ch.swisstopo.swisstlm3d-gewaessernetz`, objektart=101, envelope-identify) gerastert und **AND-verknüpft** mit HSV-Maske.
+- Ergebnis: 26.3 % Wasser (Desktop), sauber begrenzt auf Bodensee. Hafen/Altstadt bleiben Land.
+
+### B) Terrain via swissALTI3D Height-API
+- 96×96 Grid Desktop über `https://api3.geo.admin.ch/rest/services/height?easting=…&northing=…&sr=2056` (ThreadPool 16, 3 × Retry, ~19 s).
+- 48×48 Mobile aus Desktop-Grid downsampled (Faktor 2).
+- Wasser-Pixel geklemmt auf **395.6 m** (Bodensee-Level).
+- Ausgabe: `terrain.bin` (36 KB) + `terrain-lite.bin` (9 KB), Float32 relativ zur Seehöhe.
+- Frontend: `RealDigitalTwin.jsx` lädt Bin → `THREE.DataTexture` (RedFormat, FloatType), `planeGeometry` mit **191×191** Segmenten Desktop / 47×47 Mobile, Vertex-Shader displaced `pos.z += h`.
+- Attribution: **„Luftbild · Höhenmodell · Gebäude © swisstopo"**.
+
+Sockel-Report (Zielgebäude vs. Terrain am Zentroid):
+```
+obj_trischli16   terrain=+8.10 m  y_min_bldg=+13.73 m  Δ=+5.63 m
+obj_reitbahn39   terrain=+22.10 m y_min_bldg=+27.57 m  Δ=+5.47 m
+obj_geren9       terrain=+7.60 m  y_min_bldg=+13.90 m  Δ=+6.30 m
+```
+10 Stichproben: min 395.6 m (Wasser) — max 473.0 m (Rorschacherberg-Hang südlich).
+
+### C) Kontakt-AO
+- Footprint-Raster ALLER Gebäude-Dreiecke (XZ-Projektion, 389'072 tris) → Gaussian σ ≈ 4 m → `ao.webp` (40 KB, 1024²) / `ao-lite.webp` (24 KB, 512²).
+- Shader: `ortho *= ao` (Multiplikator 0.75 → min 0.25 unter Gebäuden, mean 0.88).
+
+### D) Label-Kollision
+- `LandmarksInCanvas`: alle 10 Frames Screen-Space-AABB-Check über `getBoundingClientRect`, Padding 4 px.
+- Priorisiert (harbor > landmark > transport > path > city); niedrigere Priorität → `opacity: 0` mit 220 ms Transition.
+- Offscreen-Pills automatisch versteckt.
+
+### E) Fly-In verifiziert
+- IntersectionObserver-Trigger funktioniert; erster erfasster `flyIn`-Progress = 0.036 → verläuft über 2.5 s → null (fertig). Kamera lerpt weich in die Auto-Orbit-Position.
+
+### F) Assets & Build
+```
+Datei                     Desktop   Mobile
+rorschach(-lite).glb       776 KB   416 KB
+ground(-lite).webp        1.5 MB   492 KB
+water-mask(-lite).webp      12 KB    4 KB
+ao(-lite).webp              40 KB   24 KB
+terrain(-lite).bin          36 KB   12 KB
+────────────────────────────────────────────
+Summe kritisch            2.30 MB  940 KB
+Budget                    2.50 MB  1.00 MB  ✓
+```
+- `yarn build`: grün (17.6 s). Kein Deploy.
+
+### G) Shader-Fix
+- `GROUND_VERT` benutzte `mvp` statt `mvPosition` → three.js `#include <fog_vertex>` erwartet `mvPosition`. Umbenannt, Fog-Chunk kompiliert wieder.
+
+### H) Weiterhin auf Backlog
+- P2: Highlighted-Buildings Sockel-Korrektur (Δ = 5-6 m Luft zwischen Gebäude-Base und neuem Terrain — kosmetisch akzeptabel bei aktueller Beleuchtung, aber sichtbar in extremen Zoom-Ins).
+- P2: Higgsfield API Integration (video generation, job queue, webhooks).
+- P2: SwissALTI3D via echtem STAC GeoTIFF (statt Height-API) für 2 m Auflösung — nur nötig bei stärkerem Zoom.
