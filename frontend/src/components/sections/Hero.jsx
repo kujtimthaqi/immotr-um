@@ -69,7 +69,7 @@ export default function Hero() {
       id="hero"
       ref={containerRef}
       data-testid="hero-section"
-      className="relative w-full h-[100svh] min-h-[560px] md:min-h-[640px] overflow-hidden bg-navy"
+      className="relative w-full min-h-[100svh] md:min-h-[720px] overflow-hidden bg-navy"
     >
       {/* Background: poster + video */}
       <motion.div
@@ -191,7 +191,7 @@ export default function Hero() {
       {/* Content */}
       <motion.div
         style={{ opacity: opacityContent }}
-        className="relative z-10 h-full flex flex-col justify-center max-w-[1400px] mx-auto px-6 md:px-10"
+        className="relative z-10 min-h-[100svh] flex flex-col justify-center max-w-[1400px] mx-auto px-6 md:px-10 py-24 md:py-28 xl:py-0"
       >
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -236,15 +236,28 @@ export default function Hero() {
               Verfügbare Objekte
             </a>
           </div>
+
+          {/* Inline Stats-Bar (Tablet & kleines Laptop — 768…1279 px).
+              Auf xl+ nicht rendern, dort wird die absolute Version unten benutzt. */}
+          <div className="hidden md:block xl:hidden mt-10">
+            <div className="glass rounded-full px-5 md:px-8 py-3 md:py-4 flex flex-wrap items-center gap-x-6 gap-y-2" data-testid="hero-stats-inline">
+              <Stat label="Mitgliedschaft" value="SIV" />
+              <Sep/>
+              <Stat label="Verbund" value="SIV · Casafair" />
+              <Sep/>
+              <Stat label="Regionen" value="Ostschweiz · Zentralschweiz · FL" />
+            </div>
+          </div>
         </motion.div>
       </motion.div>
 
-      {/* Bottom stats bar — desktop only (mobile: no absolute overlay above CTAs) */}
+      {/* Bottom stats bar — nur Desktop ≥ xl (1280 px+).
+          Kleinere Viewports haben die In-Flow-Version im Content-Block. */}
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 1.4, duration: 0.9, ease: "easeOut" }}
-        className="hidden md:block absolute bottom-8 inset-x-0 z-10"
+        className="hidden xl:block absolute bottom-8 inset-x-0 z-10"
       >
         <div className="max-w-[1400px] mx-auto px-6 md:px-10">
           <div className="glass rounded-full px-5 md:px-8 py-3 md:py-4 flex flex-wrap items-center justify-between gap-4">
@@ -253,8 +266,8 @@ export default function Hero() {
             <Stat label="Verbund" value="SIV · Casafair" />
             <Sep/>
             <Stat label="Regionen" value="Ostschweiz · Zentralschweiz · FL" />
-            <Sep className="hidden md:inline-flex"/>
-            <div className="hidden md:flex items-center gap-3 text-white/70">
+            <Sep/>
+            <div className="flex items-center gap-3 text-white/70">
               <span className="text-[10px] uppercase tracking-[0.28em] text-gold">Scroll</span>
               <span className="w-8 h-px bg-gold/50"/>
             </div>

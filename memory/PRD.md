@@ -353,3 +353,20 @@ Nur 2 Rental-Cards (Trischli + Reitbahn). Gerenstrasse 9 ist reference-only. Twi
   - Detail Trischli16 desktop: cam ≈ (47, 122, 96), desired (44, 110, 84), Δ < 5 m
   - Detail Reitbahn39 mobile: cam ≈ (-67, 115, 328), desired (-68, 113, 327), Δ < 3 m
 - Screenshots gespeichert: `/tmp/final_desktop_overview.png`, `/tmp/detail_trischli4.png`, `/tmp/detail_reitbahn.png`, `/tmp/mobile_overview.png`, `/tmp/mobile_detail_trischli.png`, `/tmp/mobile_detail_reitbahn.png`.
+
+## Update (Feb 2026 — Mid-Viewport Layout-Fix (768–1279 px))
+
+### Header
+- Desktop-Navigation & Header-CTA jetzt erst ab `xl` (≥1280 px) sichtbar (`hidden xl:flex`).
+- Für Viewports < 1280 px neues Hamburger-Menü (Menu/X-Icon via lucide-react) mit Framer-Motion Fade+Slide. Body-Scroll-Lock während offen. Klick auf Link scrollt & schließt.
+- Brand-Unterzeile „REAL ESTATE CURATORS" jetzt `hidden xl:block whitespace-nowrap` — verhindert 3-Zeilen-Umbruch und Kollision mit Nav.
+- Alle Nav-Labels (Desktop + Mobile-Overlay) mit `whitespace-nowrap`. „Relocation & Erbe" bricht nicht mehr.
+- Header-Höhe konstant: 64 px (<md) / 80 px (≥md).
+
+### Hero
+- Höhe von `h-[100svh]` → `min-h-[100svh]` (kann bei Bedarf wachsen).
+- Content-Container hat `py-24 md:py-28 xl:py-0` — schafft Freiraum für die neu in-flow eingefügte Stats-Bar unter den CTAs.
+- Absolute Stats-Bar (Mitgliedschaft · Verbund · Regionen · Scroll) nur noch `hidden xl:block absolute` (≥1280 px).
+- Für 768–1279 px eine neue In-Flow-Variante der Stats-Bar unter den CTAs (`mt-10`), 32 px Abstand — keine Überlappung mehr.
+- Programmatische Verifikation an 7 Breakpoints (390, 768, 820, 1024, 1180, 1280, 1440): 0 horizontal Overflow, auch nach Scroll durch die ganze Seite; Header-Höhe konstant; Hamburger visibel < xl, Nav visibel ≥ xl.
+- Hamburger-Overlay hat solide RGBA(10,20,40,0.96) Hintergrund + `backdrop-blur-xl` → Kontrast klar erkennbar.
