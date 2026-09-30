@@ -4,6 +4,7 @@
   "installCommand": "cd frontend && yarn install --frozen-lockfile",
   "buildCommand": "cd frontend && CI=false INLINE_RUNTIME_CHUNK=false GENERATE_SOURCEMAP=false yarn build",
   "outputDirectory": "frontend/build",
+  "regions": ["fra1"],
   "functions": {
     "api/index.py": {
       "maxDuration": 60,
