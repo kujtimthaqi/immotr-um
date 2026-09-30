@@ -385,3 +385,19 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .object-pill .label { display: inline-flex; flex-direction: column; align-items: flex-start; line-height: 1.1; }
 .object-pill .title { font-weight: 600; }
 .object-pill .meta { font-size: 9px; opacity: 0.75; letter-spacing: 0.04em; }
+
+
+/* Twin overlay side-panel: subtle scrollbar */
+.twin-overlay-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(201, 169, 110, 0.35) transparent;
+}
+.twin-overlay-scroll::-webkit-scrollbar { width: 6px; }
+.twin-overlay-scroll::-webkit-scrollbar-track { background: transparent; }
+.twin-overlay-scroll::-webkit-scrollbar-thumb {
+  background: rgba(201, 169, 110, 0.35);
+  border-radius: 999px;
+}
+/* Mobile horizontal scroll strip: hide native scrollbar */
+.twin-hstrip { scrollbar-width: none; -ms-overflow-style: none; -webkit-overflow-scrolling: touch; }
+.twin-hstrip::-webkit-scrollbar { display: none; }

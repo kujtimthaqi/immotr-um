@@ -107,67 +107,138 @@ export default function Objekte() {
           <ReferenceFeature listing={featureRef} isMobile={isMobile} />
         )}
 
-        <div className="mt-8 grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div ref={twinRef} className="lg:col-span-7 h-[380px] md:h-[520px] rounded-2xl overflow-hidden glass relative">
-            {showTwin ? (
-              <Suspense fallback={<TwinFallback />}>
-                <DigitalTwin highlightIndex={hoverIdx} selectedIndex={selectedIdx} onSelect={handleSelect} onDeselect={handleDeselect} listings={restFiltered} mobile={isMobile} />
-              </Suspense>
-            ) : <TwinFallback />}
+        {/* Digital Twin — full-bleed responsive band */}
+        <div
+          ref={twinRef}
+          className="mt-8 relative rounded-none md:rounded-2xl overflow-hidden glass -mx-6 md:mx-0
+                     h-[62vh] md:h-[60vh] lg:h-[72vh] lg:min-h-[560px] lg:max-h-[820px]"
+          data-testid="twin-container"
+        >
+          {showTwin ? (
+            <Suspense fallback={<TwinFallback />}>
+              <DigitalTwin
+                highlightIndex={hoverIdx}
+                selectedIndex={selectedIdx}
+                onSelect={handleSelect}
+                onDeselect={handleDeselect}
+                listings={restFiltered}
+                mobile={isMobile}
+              />
+            </Suspense>
+          ) : <TwinFallback />}
 
-            {/* Arezen video overlay (glass card over canvas) */}
-            <AnimatePresence>
-              {arezenActive && featureRef && (
-                <motion.div
-                  key="arezen-overlay"
-                  initial={{ opacity: 0, scale: 0.98 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.98 }}
-                  transition={{ duration: 0.4, ease: "easeOut" }}
-                  className="absolute inset-4 md:inset-6 rounded-xl overflow-hidden glass-strong border border-gold/40 gold-glow"
-                >
-                  <ArezenOverlayVideo listing={featureRef} isMobile={isMobile}/>
-                  <div className="absolute top-3 left-3 glass px-3 py-1.5 rounded-full text-[10px] uppercase tracking-[0.28em] text-gold-light">
-                    Arezen GR · 7104 · nicht in Rorschach
-                  </div>
-                </motion.div>
+          {/* Arezen video overlay (glass card over canvas) */}
+          <AnimatePresence>
+            {arezenActive && featureRef && (
+              <motion.div
+                key="arezen-overlay"
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+                transition={{ duration: 0.4, ease: "easeOut" }}
+                className="absolute inset-4 md:inset-6 rounded-xl overflow-hidden glass-strong border border-gold/40 gold-glow"
+              >
+                <ArezenOverlayVideo listing={featureRef} isMobile={isMobile}/>
+                <div className="absolute top-3 left-3 glass px-3 py-1.5 rounded-full text-[10px] uppercase tracking-[0.28em] text-gold-light">
+                  Arezen GR · 7104 · nicht in Rorschach
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Desktop overlay: object cards docked left */}
+          {!isMobile && (
+            <div
+              className="hidden lg:flex absolute top-4 bottom-4 left-4 w-[340px] xl:w-[380px]
+                         flex-col gap-3 overflow-y-auto pr-1 pointer-events-auto z-20 twin-overlay-scroll"
+              data-testid="twin-overlay-cards"
+            >
+              {restFiltered.length === 0 && !featureRef && (
+                <div className="glass-strong rounded-xl p-4 text-white/70 text-sm">Aktuell keine Einträge.</div>
               )}
-            </AnimatePresence>
+              {tab === "reference" && featureRef && (
+                <button
+                  onMouseEnter={() => setHoverIdx(-1)}
+                  onMouseLeave={() => setHoverIdx(null)}
+                  data-testid="arezen-pointer"
+                  className={`w-full text-left glass-strong rounded-xl p-4 transition-all ${arezenActive ? "gold-glow" : ""}`}
+                >
+                  <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.28em] text-gold-light/80">
+                    <span className="pulse-dot reserved"/> <span>Feature</span>
+                    <span className="text-white/50">· {featureRef.year}</span>
+                  </div>
+                  <div className="font-serif text-base font-light tracking-tight text-white mt-1">
+                    {featureRef.title}
+                  </div>
+                  <div className="text-xs text-white/60 mt-1">{featureRef.address}</div>
+                  <div className="mt-2 text-[10px] uppercase tracking-[0.24em] text-gold">Hover · Drohnenaufnahme</div>
+                </button>
+              )}
+              {restFiltered.map((l, i) => (
+                <ListingCard
+                  key={l.id}
+                  listing={l}
+                  idx={i}
+                  active={hoverIdx === i}
+                  onEnter={() => setHoverIdx(i)}
+                  onLeave={() => setHoverIdx(null)}
+                  onInquire={() => setInquiryFor(l)}
+                  onSelect={() => handleSelect(i)}
+                  compact
+                />
+              ))}
+              {tab === "rental" && (
+                <div className="text-[11px] text-white/50 pt-1 italic px-2">Hinweis: Derzeit keine Kaufobjekte verfügbar.</div>
+              )}
+            </div>
+          )}
 
-            <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between pointer-events-none">
-              <div className="glass px-3 py-1.5 rounded-full text-[10px] uppercase tracking-[0.28em] text-gold-light">
-                Digital Twin · Rorschach
-              </div>
-              <div className="glass px-3 py-1.5 rounded-full text-[10px] uppercase tracking-[0.28em] text-gold-light hidden md:block">
-                Drag · Zoom · Klick
-              </div>
+          <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between pointer-events-none z-10">
+            <div className="glass px-3 py-1.5 rounded-full text-[10px] uppercase tracking-[0.28em] text-gold-light">
+              Digital Twin · Rorschach
+            </div>
+            <div className="glass px-3 py-1.5 rounded-full text-[10px] uppercase tracking-[0.28em] text-gold-light hidden md:block">
+              Drag · Zoom · Klick
             </div>
           </div>
 
-          <div className="lg:col-span-5 space-y-4">
-            {restFiltered.length === 0 && !featureRef && (
-              <div className="glass rounded-2xl p-6 text-white/70 text-sm">Aktuell keine Einträge.</div>
-            )}
-            {tab === "reference" && featureRef && (
-              <button
-                onMouseEnter={() => setHoverIdx(-1)}
-                onMouseLeave={() => setHoverIdx(null)}
-                onFocus={() => setHoverIdx(-1)}
-                onBlur={() => setHoverIdx(null)}
-                data-testid="arezen-pointer"
-                className={`w-full text-left glass rounded-2xl p-5 transition-all ${arezenActive ? "gold-glow" : ""}`}
-              >
-                <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.28em] text-gold-light/80">
-                  <span className="pulse-dot reserved"/> <span>Feature</span>
-                  <span className="text-white/50">· {featureRef.year}</span>
+          {/* Mobile touch hint — 2s einmalig */}
+          {isMobile && showTwin && <TouchHint />}
+        </div>
+
+        {/* Mobile: horizontal scroll object cards below map */}
+        {isMobile && (
+          <div className="lg:hidden mt-4 -mx-6 px-6 overflow-x-auto twin-hstrip" data-testid="twin-mobile-cards">
+            <div className="flex gap-3 pb-2 min-w-max">
+              {restFiltered.length === 0 && !featureRef && (
+                <div className="glass rounded-xl p-4 text-white/70 text-sm min-w-[240px]">Aktuell keine Einträge.</div>
+              )}
+              {restFiltered.map((l, i) => (
+                <div key={l.id} className="w-[280px] shrink-0">
+                  <ListingCard
+                    listing={l}
+                    idx={i}
+                    active={hoverIdx === i}
+                    onEnter={() => setHoverIdx(i)}
+                    onLeave={() => setHoverIdx(null)}
+                    onInquire={() => setInquiryFor(l)}
+                    onSelect={() => handleSelect(i)}
+                    compact
+                  />
                 </div>
-                <div className="font-serif text-lg font-light tracking-tight text-white mt-1">
-                  {featureRef.title}
+              ))}
+              {tab === "rental" && (
+                <div className="text-[11px] text-white/50 pt-1 italic self-center px-3 min-w-[160px]">
+                  Keine Kaufobjekte verfügbar.
                 </div>
-                <div className="text-xs text-white/60 mt-1">{featureRef.address}</div>
-                <div className="mt-3 text-[10px] uppercase tracking-[0.24em] text-gold">Hover · zeigt Drohnenaufnahme</div>
-              </button>
-            )}
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Tablet: stacked cards below (no overlay) */}
+        {!isMobile && (
+          <div className="hidden md:flex lg:hidden mt-6 flex-col gap-3">
             {restFiltered.map((l, i) => (
               <ListingCard
                 key={l.id}
@@ -180,11 +251,8 @@ export default function Objekte() {
                 onSelect={() => handleSelect(i)}
               />
             ))}
-            {tab === "rental" && (
-              <div className="text-xs text-white/50 pt-2 italic">Hinweis: Derzeit sind keine Kaufobjekte verfügbar.</div>
-            )}
           </div>
-        </div>
+        )}
       </div>
 
       <AnimatePresence>
@@ -199,6 +267,42 @@ function TwinFallback() {
     <div className="w-full h-full bg-gradient-to-br from-[#0A1428] to-[#13233F] flex items-center justify-center">
       <div className="text-gold/60 text-[10px] uppercase tracking-[0.3em]">3D lädt…</div>
     </div>
+  );
+}
+
+// One-time touch hint for mobile users: "Zwei Finger zum Bewegen"
+function TouchHint() {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    // Guard: nur einmal pro Session zeigen
+    try { if (sessionStorage.getItem("twinTouchHintShown") === "1") return; } catch (_) { /* noop */ }
+    const t1 = setTimeout(() => setShow(true), 500);
+    const t2 = setTimeout(() => {
+      setShow(false);
+      try { sessionStorage.setItem("twinTouchHintShown", "1"); } catch (_) { /* noop */ }
+    }, 2500);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, []);
+  return (
+    <AnimatePresence>
+      {show && (
+        <motion.div
+          key="touch-hint"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 10 }}
+          transition={{ duration: 0.35 }}
+          data-testid="twin-touch-hint"
+          className="absolute top-14 left-1/2 -translate-x-1/2 glass-strong px-4 py-2 rounded-full
+                     text-[11px] uppercase tracking-[0.22em] text-gold-light z-30 pointer-events-none
+                     flex items-center gap-2 border border-gold/25"
+        >
+          <span aria-hidden>✌︎</span>
+          <span>Zwei Finger zum Bewegen</span>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 
@@ -314,7 +418,7 @@ function ArezenOverlayVideo({ listing, isMobile }) {
   );
 }
 
-function ListingCard({ listing, idx, active, onEnter, onLeave, onInquire, onSelect }) {
+function ListingCard({ listing, idx, active, onEnter, onLeave, onInquire, onSelect, compact = false }) {
   const st = STATUS[listing.status] || STATUS.available;
   return (
     <motion.div
@@ -326,11 +430,11 @@ function ListingCard({ listing, idx, active, onEnter, onLeave, onInquire, onSele
       onMouseLeave={onLeave}
       onClick={onSelect}
       data-testid={`listing-card-${listing.id}`}
-      className={`glass rounded-2xl overflow-hidden transition-all cursor-pointer ${active ? "gold-glow" : ""}`}
+      className={`${compact ? "glass-strong" : "glass"} rounded-2xl overflow-hidden transition-all cursor-pointer ${active ? "gold-glow" : ""}`}
     >
       <div className="flex gap-0">
         {listing.image_url ? (
-          <div className="w-24 sm:w-32 md:w-40 shrink-0 relative">
+          <div className={`${compact ? "w-24 md:w-28" : "w-24 sm:w-32 md:w-40"} shrink-0 relative`}>
             <ListingPicture
               src={listing.image_url}
               alt={listing.title}
@@ -340,7 +444,7 @@ function ListingCard({ listing, idx, active, onEnter, onLeave, onInquire, onSele
             />
           </div>
         ) : (
-          <div className="w-24 sm:w-32 md:w-40 shrink-0 bg-gradient-to-br from-[#13233F] to-[#0A1428] relative">
+          <div className={`${compact ? "w-24 md:w-28" : "w-24 sm:w-32 md:w-40"} shrink-0 bg-gradient-to-br from-[#13233F] to-[#0A1428] relative`}>
             <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full opacity-40">
               <line x1="0" y1="80" x2="100" y2="10" stroke="#C9A96E" strokeWidth="0.5"/>
               <line x1="20" y1="100" x2="100" y2="40" stroke="#C9A96E" strokeWidth="0.5"/>
@@ -348,7 +452,7 @@ function ListingCard({ listing, idx, active, onEnter, onLeave, onInquire, onSele
             </svg>
           </div>
         )}
-        <div className="flex-1 p-4 md:p-5 min-w-0">
+        <div className={`flex-1 ${compact ? "p-3 md:p-3.5" : "p-4 md:p-5"} min-w-0`}>
           <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.28em] text-gold-light/80 flex-wrap">
             <span className={`pulse-dot ${st.cls}`}/> <span>{st.label}</span>
             {listing.available_from && listing.status === "available" && (
@@ -358,7 +462,7 @@ function ListingCard({ listing, idx, active, onEnter, onLeave, onInquire, onSele
               <span className="text-white/50">· {listing.year}</span>
             )}
           </div>
-          <h4 className="mt-2 font-serif text-base md:text-xl font-light tracking-tight text-white leading-tight break-words">{listing.title}</h4>
+          <h4 className={`mt-2 font-serif ${compact ? "text-sm md:text-base" : "text-base md:text-xl"} font-light tracking-tight text-white leading-tight break-words`}>{listing.title}</h4>
           <div className="mt-1 text-xs text-white/60 break-words">{listing.address}{listing.zip ? `, ${listing.zip} ${listing.city || ""}` : ""}</div>
           {listing.kind === "rental" && (
             <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">

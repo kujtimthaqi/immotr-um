@@ -115,7 +115,8 @@
       "min": -0.100006103515625,
       "max": 77.29998779296875
     },
-    "level_m": 395.6
+    "level_m": 395.6,
+    "offset_m": 5.417638106745068
   },
   "attribution": "Luftbild \u00b7 H\u00f6henmodell \u00b7 Geb\u00e4ude \u00a9 swisstopo"
 }

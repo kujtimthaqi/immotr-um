@@ -533,7 +533,6 @@ def main():
     print("\n[Report] Sockel-Differenzen an Zielgebäuden:")
     for t in footprints_meta["targets"]:
         cx, cz = t["centroid"]
-        # sample terrain at centroid (original orientation: grid_rel row 0 = north)
         u = (cx - bounds["xW"]) / bounds["width"]
         v = (cz - bounds["zN"]) / bounds["depth"]
         u = max(0, min(0.9999, u))
@@ -545,6 +544,116 @@ def main():
         delta = y_base - terrain_display
         print(f"  {t['name']:16s} terrain_z={terrain_display:+6.2f} m  "
               f"y_min_bldg={y_base:+6.2f} m  Δ={delta:+6.2f} m")
+
+    # ------------------------------------------------------------------
+    # GLOBAL TERRAIN OFFSET (systematisches Höhen-Bezugssystem korrigieren)
+    # ------------------------------------------------------------------
+    # ~300 XZ-Zellen mit min-y aus bg-Meshes (Sockel) vs. Terrain am Cell-Center
+    print("\n[Offset] Ermittle terrain_offset_m aus ~300 zufälligen Hintergrund-Sockeln…")
+    cell = 8.0  # 8 m Zellen
+    # Alle bg-Vertices sammeln (Primitive 0 = background nach build_twin.py)
+    if not meshes:
+        print("  ⚠️  keine Meshes")
+        terrain_offset = 0.0
+    else:
+        # bg = grösstes Mesh
+        bg_pts = max(meshes, key=lambda p: p[0].shape[0])[0]
+        print(f"  bg vertices: {bg_pts.shape[0]:,}")
+        # Cell key
+        ix = np.floor((bg_pts[:, 0] - bounds["xW"]) / cell).astype(np.int64)
+        iz = np.floor((bg_pts[:, 2] - bounds["zN"]) / cell).astype(np.int64)
+        # bounds check
+        max_ix = int(bounds["width"] / cell)
+        max_iz = int(bounds["depth"] / cell)
+        keep = (ix >= 0) & (ix < max_ix) & (iz >= 0) & (iz < max_iz)
+        ix = ix[keep]; iz = iz[keep]; ys = bg_pts[keep, 1]
+        keys = ix * 100000 + iz
+        # min-y per cell
+        order = np.argsort(keys)
+        keys_s = keys[order]; ys_s = ys[order]
+        uniq_keys, first_idx = np.unique(keys_s, return_index=True)
+        min_ys = np.minimum.reduceat(ys_s, first_idx)
+        # count vertices per cell (Filter: mind. 8, sonst zu wenig Statistik)
+        counts = np.diff(np.concatenate([first_idx, [len(keys_s)]]))
+        cell_ix = uniq_keys // 100000
+        cell_iz = uniq_keys % 100000
+        # Cell centers in ENU
+        cx_cell = bounds["xW"] + (cell_ix + 0.5) * cell
+        cz_cell = bounds["zN"] + (cell_iz + 0.5) * cell
+        # Nachbarschafts-Min-Y auf 3×3 Zellen (24 m Nachbarschaft)
+        # → Zelle behalten, wenn ihr min_y nahe am Nachbarschaftsmin ist
+        #   (verhindert Zellen, die nur Dächer der Nachbargebäude enthalten).
+        # Build a sparse array over (ix, iz) grid
+        max_ix = int(bounds["width"] / cell) + 1
+        max_iz = int(bounds["depth"] / cell) + 1
+        grid_miny = np.full((max_iz, max_ix), np.inf, dtype=np.float32)
+        grid_miny[cell_iz.astype(int), cell_ix.astype(int)] = min_ys
+        # 3×3 min-filter
+        from scipy.ndimage import minimum_filter
+        neigh_min = minimum_filter(grid_miny, size=3, mode="constant", cval=np.inf)
+        nb_min = neigh_min[cell_iz.astype(int), cell_ix.astype(int)]
+        # Water mask (from mask_img at grid resolution)
+        mask_img_full = Image.open(OUT_DIR / "water-mask.webp").convert("L")
+        mask_img_full = mask_img_full.resize((256, 256), Image.LANCZOS)
+        wm_arr = np.array(mask_img_full).astype(np.float32) / 255.0
+        # Sample terrain (bilinear) at cell centers
+        u = np.clip((cx_cell - bounds["xW"]) / bounds["width"], 0, 0.9999)
+        v = np.clip((cz_cell - bounds["zN"]) / bounds["depth"], 0, 0.9999)
+        gi = u * (GRID_N_DESKTOP - 1)
+        gj = v * (GRID_N_DESKTOP - 1)
+        gi0 = np.floor(gi).astype(int); gi1 = np.minimum(gi0 + 1, GRID_N_DESKTOP - 1)
+        gj0 = np.floor(gj).astype(int); gj1 = np.minimum(gj0 + 1, GRID_N_DESKTOP - 1)
+        fu = gi - gi0; fv = gj - gj0
+        h00 = grid_rel[gj0, gi0]; h10 = grid_rel[gj0, gi1]
+        h01 = grid_rel[gj1, gi0]; h11 = grid_rel[gj1, gi1]
+        h_terrain = (1 - fv) * ((1 - fu) * h00 + fu * h10) + fv * ((1 - fu) * h01 + fu * h11)
+        # Water-Zellen ausschliessen
+        wu = np.clip((u * 255).astype(int), 0, 255)
+        wv = np.clip((v * 255).astype(int), 0, 255)
+        is_water = wm_arr[wv, wu] > 0.5
+        delta = min_ys - h_terrain
+        # Filter: Zelle behalten, wenn (a) nicht Wasser, (b) ≥8 verts,
+        # (c) min_y innerhalb 1.5 m vom 3×3-Nachbarschafts-Minimum (echter Sockel).
+        keep2 = (~is_water) & (counts >= 8) & (min_ys <= nb_min + 1.5)
+        delta_land = delta[keep2]
+        print(f"  Zellen gefiltert: {int(keep2.sum())} / {len(delta)} (Wasser & Dach-Only entfernt)")
+        # 300 zufällige Stichproben aus qualifizierten Zellen
+        rng = np.random.default_rng(42)
+        n_samples = min(300, len(delta_land))
+        idx = rng.choice(len(delta_land), n_samples, replace=False)
+        sample = delta_land[idx]
+        med = float(np.median(sample))
+        p10 = float(np.percentile(sample, 10))
+        p90 = float(np.percentile(sample, 90))
+        print(f"  {n_samples} Sockel-Zellen (gefiltert): median={med:+.2f} m, "
+              f"P10={p10:+.2f} m, P90={p90:+.2f} m")
+        terrain_offset = med  # → add to terrain in shader
+
+        residual = sample - terrain_offset
+        rmed = float(np.median(residual))
+        rp10 = float(np.percentile(residual, 10))
+        rp90 = float(np.percentile(residual, 90))
+        rp90_abs = float(np.percentile(np.abs(residual), 90))
+        print(f"  Rest nach Offset {terrain_offset:+.2f} m: "
+              f"median={rmed:+.2f} m, P10={rp10:+.2f} m, P90={rp90:+.2f} m, |P90|={rp90_abs:.2f} m")
+        goal_ok = abs(rmed) < 0.5 and rp90_abs < 2.0
+        print(f"  Zielkriterien |median| < 0.5 m ∧ |P90| < 2 m → {'✓ erreicht' if goal_ok else '⚠ verfehlt'}")
+
+    meta["terrain"]["offset_m"] = float(terrain_offset)
+
+    # Zielgebäude neu bewerten mit Offset
+    print("\n[Report] Sockel-Differenzen an Zielgebäuden NACH Offset:")
+    for t in footprints_meta["targets"]:
+        cx, cz = t["centroid"]
+        u = max(0, min(0.9999, (cx - bounds["xW"]) / bounds["width"]))
+        v = max(0, min(0.9999, (cz - bounds["zN"]) / bounds["depth"]))
+        i = int(u * (GRID_N_DESKTOP - 1))
+        j = int(v * (GRID_N_DESKTOP - 1))
+        terrain_after = float(grid_rel[j, i]) + terrain_offset
+        y_base = float(t["y_min"])
+        delta_after = y_base - terrain_after
+        print(f"  {t['name']:16s} terrain_after={terrain_after:+6.2f} m  "
+              f"y_min_bldg={y_base:+6.2f} m  Δ={delta_after:+6.2f} m")
 
     print("\n[Report] 10 Stichproben (ENU→Höhe rel. Bodensee):")
     rng = np.random.default_rng(42)

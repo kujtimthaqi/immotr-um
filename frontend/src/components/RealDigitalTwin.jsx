@@ -480,12 +480,15 @@ function OrthoGround({ meta, mobile, dayMode, onDbg }) {
     return { xW, xE, zN, zS };
   }, [info, meta]);
 
+  const terrainOffset = meta?.terrain?.offset_m ?? 0;
+
   const uniforms = useMemo(() => ({
     uOrtho: { value: tex },
     uWaterMask: { value: maskTex },
     uAO: { value: aoTex },
     uTerrain: { value: terrainTex },
     uHasTerrain: { value: terrainTex ? 1.0 : 0.0 },
+    uTerrainOffset: { value: terrainOffset },
     uTime: { value: 0 },
     uCameraPos: { value: new THREE.Vector3() },
     uOrthoTint: { value: new THREE.Color("#98a5b7") },
@@ -497,7 +500,7 @@ function OrthoGround({ meta, mobile, dayMode, onDbg }) {
     fogColor: { value: new THREE.Color("#0d1a34") },
     fogNear: { value: 900 },
     fogFar: { value: 3400 },
-  }), [tex, maskTex, aoTex, terrainTex]);
+  }), [tex, maskTex, aoTex, terrainTex, terrainOffset]);
 
   useEffect(() => {
     if (!materialRef.current) return;
@@ -543,6 +546,7 @@ function OrthoGround({ meta, mobile, dayMode, onDbg }) {
 const GROUND_VERT = `
   uniform sampler2D uTerrain;
   uniform float uHasTerrain;
+  uniform float uTerrainOffset;
   varying vec2 vUvG;
   varying vec3 vWorldPosG;
   varying float vTerrainH;
@@ -552,8 +556,7 @@ const GROUND_VERT = `
     vec3 pos = position;
     float h = 0.0;
     if (uHasTerrain > 0.5) {
-      h = texture2D(uTerrain, uv).r;
-      // Plane liegt lokal in XY, rotiert -PI/2 um X → lokales +Z entspricht Welt-Y (Up).
+      h = texture2D(uTerrain, uv).r + uTerrainOffset;
       pos.z += h;
     }
     vTerrainH = h;
