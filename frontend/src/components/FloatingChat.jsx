@@ -17,7 +17,6 @@ export default function FloatingChat() {
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [sessionId] = useState(() => crypto.randomUUID());
   const [visible, setVisible] = useState(false);
   const bottomRef = useRef(null);
 
@@ -38,6 +37,7 @@ export default function FloatingChat() {
   const send = async (text) => {
     const msg = (text ?? input).trim();
     if (!msg || loading) return;
+    const history = messages.filter(m => m.content).slice(-12);
     setInput("");
     setMessages(prev => [...prev, { role: "user", content: msg }, { role: "assistant", content: "" }]);
     setLoading(true);
@@ -45,8 +45,9 @@ export default function FloatingChat() {
       const res = await fetch(`${API}/chat/stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_id: sessionId, message: msg }),
+        body: JSON.stringify({ message: msg.slice(0, 2000), history }),
       });
+      if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
@@ -188,6 +189,7 @@ export default function FloatingChat() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Ihre Frage…"
+                maxLength={2000}
                 data-testid="chat-input"
                 className="flex-1 bg-transparent text-sm text-white placeholder-white/40 outline-none px-2"
               />
