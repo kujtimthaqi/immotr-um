@@ -126,3 +126,11 @@ async def test_chat_stream_relays_llm_deltas(client, monkeypatch):
 async def test_api_docs_are_disabled(client):
     assert (await client.get("/docs")).status_code == 404
     assert (await client.get("/openapi.json")).status_code == 404
+
+
+async def test_rate_limit_counts_per_client_and_blocks(client, monkeypatch):
+    import security
+    monkeypatch.setitem(security.RATE_LIMITS, "inquiry", (2, 3600))
+    body = {"name": "Test Person", "email": "test@example.com", "message": "Bitte um Rückruf zu einer Bewertung."}
+    codes = [(await client.post("/api/inquiries", json=body)).status_code for _ in range(3)]
+    assert codes[:2] != [429, 429] and codes[2] == 429

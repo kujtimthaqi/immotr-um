@@ -14,6 +14,7 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
 
 import llm  # noqa: E402  (reads env at import)
+from blob_store import BlobDatabase, VercelBlobBackend  # noqa: E402
 from models import (  # noqa: E402
     AdminLogin, ChatBody, Inquiry, InquiryCreate, Listing, ListingCreate, ValuationInput,
 )
@@ -27,8 +28,16 @@ from valuation import compute_valuation  # noqa: E402
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-client = AsyncIOMotorClient(os.environ["MONGO_URL"])
-db = client[os.environ.get("DB_NAME", "immo_traeum")]
+def _open_database():
+    """MongoDB when MONGO_URL is set, otherwise the private Vercel Blob document store."""
+    if os.environ.get("MONGO_URL"):
+        return AsyncIOMotorClient(os.environ["MONGO_URL"])[os.environ.get("DB_NAME", "immo_traeum")]
+    if os.environ.get("BLOB_READ_WRITE_TOKEN"):
+        return BlobDatabase(VercelBlobBackend(os.environ["BLOB_READ_WRITE_TOKEN"]))
+    raise RuntimeError("Set MONGO_URL (MongoDB) or BLOB_READ_WRITE_TOKEN (Vercel Blob storage)")
+
+
+db = _open_database()
 
 app = FastAPI(title="Immo Traeum AG API", docs_url=None, redoc_url=None, openapi_url=None)
 api_router = APIRouter(prefix="/api")

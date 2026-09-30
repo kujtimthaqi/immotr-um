@@ -9,6 +9,7 @@ Rate limits live in MongoDB (TTL-indexed) so they hold across serverless instanc
 import hashlib
 import hmac
 import os
+import secrets
 import time
 from datetime import datetime, timedelta, timezone
 
@@ -94,6 +95,9 @@ RATE_LIMITS = {
 }
 
 
+PRUNE_EVERY = 20  # on average every 20th request cleans expired counters
+
+
 async def ensure_rate_limit_index(db) -> None:
     await db.rate_limits.create_index("expires_at", expireAfterSeconds=0)
 
@@ -109,6 +113,9 @@ async def enforce_rate_limit(db, request: Request, bucket: str) -> None:
         upsert=True,
         return_document=ReturnDocument.AFTER,
     )
+    # The blob store has no TTL index: drop expired counters now and then.
+    if secrets.randbelow(PRUNE_EVERY) == 0:
+        await db.rate_limits.delete_many({"expires_at": {"$lt": datetime.now(timezone.utc)}})
     if doc and doc.get("count", 0) > limit:
         raise HTTPException(
             status_code=429,
