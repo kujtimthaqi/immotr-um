@@ -8,7 +8,7 @@ Design: High-End PropTech (Niveau VistaView / cinematic). Navy #0A1428 + Champag
 ## Architecture
 - Frontend: React 18.3.1 + JSX, Tailwind, Framer Motion, React Three Fiber v8, three-stdlib OrbitControls, Lenis Smooth Scroll, shadcn/ui (sonner for toasts).
 - Backend: FastAPI + Motor (async Mongo). `/api` prefix; admin protected via header `X-Admin-Password`.
-- LLM: Emergent Universal Key → Anthropic `claude-sonnet-4-6` (streaming) for `/api/chat/stream` and `/api/valuation` commentary.
+- LLM: Emergent Universal Key → Anthropic `claude-opus-5-5` (streaming) for `/api/chat/stream` and `/api/valuation` commentary.
 - Media: Higgsfield hero + reference photos converted to WebP + AVIF at 800/1600/2400 px (cwebp/avifenc). PNGs removed. Hero uses `<picture>` with fetchpriority="high".
 
 ## Personas
