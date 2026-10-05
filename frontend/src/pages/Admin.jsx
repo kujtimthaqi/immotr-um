@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
-import { adminLogin, adminList, adminCreateListing, adminUpdateListing, adminDeleteListing, getListings } from "@/lib/api";
+import { adminLogin, adminLogout, adminCheckSession, adminList, adminCreateListing, adminUpdateListing, adminDeleteListing, getListings } from "@/lib/api";
 import { ArrowLeft, Plus, Trash2, Save } from "lucide-react";
 
 const EMPTY = {
@@ -11,12 +11,17 @@ const EMPTY = {
 };
 
 export default function Admin() {
-  const [authed, setAuthed] = useState(!!localStorage.getItem("itm_admin_pw"));
+  const [authed, setAuthed] = useState(false);
   const [password, setPassword] = useState("");
   const [listings, setListings] = useState([]);
   const [inquiries, setInquiries] = useState([]);
   const [editing, setEditing] = useState(null);
   const [tab, setTab] = useState("listings");
+
+  useEffect(() => {
+    localStorage.removeItem("itm_admin_pw"); // purge legacy plaintext password
+    adminCheckSession().then(setAuthed);
+  }, []);
 
   useEffect(() => { if (authed) refresh(); }, [authed]);
 
@@ -27,7 +32,6 @@ export default function Admin() {
       setInquiries(inq);
     } catch (e) {
       if (e?.response?.status === 401) {
-        localStorage.removeItem("itm_admin_pw");
         setAuthed(false);
         toast.error("Sitzung abgelaufen.");
       }
@@ -38,11 +42,11 @@ export default function Admin() {
     e.preventDefault();
     try {
       await adminLogin(password);
-      localStorage.setItem("itm_admin_pw", password);
+      setPassword("");
       setAuthed(true);
       toast.success("Angemeldet.");
     } catch (e) {
-      toast.error("Falsches Passwort.");
+      toast.error(e?.response?.status === 429 ? "Zu viele Versuche. Bitte später erneut." : "Falsches Passwort.");
     }
   };
 
@@ -74,7 +78,7 @@ export default function Admin() {
     } catch (e) { toast.error("Löschen fehlgeschlagen."); }
   };
 
-  const logout = () => { localStorage.removeItem("itm_admin_pw"); setAuthed(false); };
+  const logout = async () => { await adminLogout().catch(() => {}); setAuthed(false); };
 
   if (!authed) {
     return (

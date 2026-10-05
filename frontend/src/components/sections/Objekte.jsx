@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, lazy, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getListings, createInquiry } from "@/lib/api";
+import Honeypot from "@/components/Honeypot";
 import { SectionHeader } from "@/components/sections/Leistungen";
 import { toast } from "sonner";
 import { useAutoPlayVideo, usePrefersSaveMotion } from "@/lib/useVideo";
@@ -513,7 +514,7 @@ function ListingCard({ listing, idx, active, onEnter, onLeave, onInquire, onSele
 }
 
 function InquiryModal({ listing, onClose }) {
-  const [form, setForm] = useState({ name: "", email: "", phone: "", message: `Anfrage zu: ${listing.title}` });
+  const [form, setForm] = useState({ name: "", email: "", phone: "", message: `Anfrage zu: ${listing.title}`, website: "" });
   const [sending, setSending] = useState(false);
 
   const submit = async (e) => {
@@ -543,7 +544,8 @@ function InquiryModal({ listing, onClose }) {
       >
         <div className="text-[10px] uppercase tracking-[0.28em] text-gold mb-2">Anfrage · {listing.city || "Rorschach"}</div>
         <h3 className="font-serif text-2xl font-light tracking-tight text-white">{listing.title}</h3>
-        <form onSubmit={submit} className="mt-6 space-y-3">
+        <form onSubmit={submit} className="mt-6 space-y-3 relative">
+          <Honeypot value={form.website} onChange={(v) => setForm({ ...form, website: v })} />
           <Field label="Name" required>
             <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} data-testid="inquiry-name" className="w-full bg-transparent border-b border-gold/30 focus:border-gold py-2 text-white placeholder-white/30 outline-none"/>
           </Field>

@@ -32,7 +32,6 @@ export default function Footer() {
           <ul className="space-y-2 text-sm text-white/70">
             <li><Link to="/impressum" className="link-gold" data-testid="footer-impressum">Impressum</Link></li>
             <li><Link to="/datenschutz" className="link-gold" data-testid="footer-datenschutz">Datenschutz</Link></li>
-            <li><Link to="/admin" className="link-gold" data-testid="footer-admin">Admin</Link></li>
           </ul>
         </div>
         <div className="md:col-span-2">

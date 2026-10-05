@@ -3,12 +3,13 @@ import { motion } from "framer-motion";
 import { SectionHeader } from "@/components/sections/Leistungen";
 import { createInquiry } from "@/lib/api";
 import { toast } from "sonner";
+import Honeypot from "@/components/Honeypot";
 
 const TOPICS = ["Bewertung", "Bewirtschaftung", "Beratung", "Erbschaft", "Investor", "Relocation", "Sonstiges"];
 
 export default function Kontakt() {
   const [form, setForm] = useState({
-    company: "", name: "", address: "", zip_city: "", phone: "", email: "", topic: "Bewertung", message: "",
+    company: "", name: "", address: "", zip_city: "", phone: "", email: "", topic: "Bewertung", message: "", website: "",
   });
   const [sending, setSending] = useState(false);
 
@@ -20,7 +21,9 @@ export default function Kontakt() {
       toast.success("Vielen Dank. Ihre Nachricht ist bei uns eingegangen.");
       setForm({ ...form, message: "", company: "", address: "", zip_city: "", phone: "" });
     } catch (e) {
-      toast.error("Übermittlung fehlgeschlagen. Bitte per Telefon oder E-Mail versuchen.");
+      toast.error(e?.response?.status === 429
+        ? "Zu viele Anfragen. Bitte später erneut oder per Telefon."
+        : "Übermittlung fehlgeschlagen. Bitte per Telefon oder E-Mail versuchen.");
     } finally {
       setSending(false);
     }
@@ -68,6 +71,7 @@ export default function Kontakt() {
             data-testid="contact-form"
           >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Honeypot value={form.website} onChange={(v) => setForm({ ...form, website: v })} />
               <Fld label="Firma"><input value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} className="input" data-testid="c-company"/></Fld>
               <Fld label="Name" required><input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="input" data-testid="c-name"/></Fld>
               <Fld label="Adresse"><input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="input" data-testid="c-address"/></Fld>

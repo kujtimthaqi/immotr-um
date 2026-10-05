@@ -9,7 +9,7 @@ export default function Datenschutz() {
           <ArrowLeft size={14}/> Zurück
         </Link>
         <h1 className="font-serif text-4xl md:text-5xl font-light tracking-tight">Datenschutzerklärung</h1>
-        <p className="mt-3 text-[11px] uppercase tracking-[0.24em] text-gold-light">Nach revDSG (in Kraft seit 1.9.2023) · Stand: Februar 2026</p>
+        <p className="mt-3 text-[11px] uppercase tracking-[0.24em] text-gold-light">Nach revDSG (in Kraft seit 1.9.2023) · Stand: September 2026</p>
 
         <div className="mt-10 space-y-8 text-white/80 leading-relaxed text-[15px]">
           <section>
@@ -44,7 +44,8 @@ export default function Datenschutz() {
             <h2 className="font-serif text-xl text-gold-light mb-2">4. Auftragsbearbeiter und Bekanntgabe ins Ausland</h2>
             <p className="text-sm">Wir arbeiten mit sorgfältig ausgewählten Dienstleistern:</p>
             <ul className="list-disc pl-6 mt-2 space-y-1 text-sm">
-              <li><strong>Hosting</strong> — Emergent (Betrieb der Website und der Anfragen-API).</li>
+              <li><strong>Hosting</strong> — Vercel Inc. (USA; Betrieb der Website und der Anfragen-API).</li>
+              <li><strong>Datenbank</strong> — MongoDB Atlas (Speicherung von Anfragen und Objektdaten).</li>
               <li><strong>KI-Antworten im Chat und in Bewertungskommentaren</strong> — Anthropic (USA).
                 Ihre Eingaben werden zur Generierung der Antwort an den LLM-Anbieter übermittelt. Die USA
                 verfügen über einen anerkannten Angemessenheitsbeschluss (Swiss-U.S. Data Privacy Framework).
@@ -64,7 +65,8 @@ export default function Datenschutz() {
             <p className="text-sm">
               Wir setzen <strong>keine</strong> Analyse-Tools, Werbenetzwerke oder Tracking-Cookies ein.
               Wir verwenden ausschliesslich technisch notwendigen lokalen Speicher (z. B. für die
-              Theme-Auswahl dunkel/hell und die Chat-Sitzungs-ID). Es werden keine externen CDNs für Fonts,
+              Theme-Auswahl dunkel/hell). Chat-Verläufe werden nicht auf unseren Servern gespeichert. Für den
+              passwortgeschützten Verwaltungsbereich wird ein technisch notwendiges Sitzungs-Cookie gesetzt. Es werden keine externen CDNs für Fonts,
               Bilder oder 3D-Daten aufgerufen.
             </p>
           </section>
